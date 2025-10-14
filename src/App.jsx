@@ -115,13 +115,17 @@ const FileUploadPanel = ({ isProcessing, processingStatus, fileName, handleDragO
  * setStructuredMarkdown: (value: string) => void;
  * onApproval: () => void;
  * onAgendaChoice: (choice: boolean) => void;
+ * slideOutline: { title: string; summary: string }[];
+ * onOutlineChange: (index: number, field: 'title' | 'summary', value: string) => void;
+ * onInsertSlide: (index: number) => void;
+ * onDeleteSlide: (index: number) => void;
  * onStartGeneration: () => void;
  * onPreview: () => void;
  * onApproveAndNext: () => void;
  * onDownloadZip: () => void;
  * }} props
  */
-const ChatPanel = ({ messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus, structuredMarkdown, setStructuredMarkdown, onApproval, onAgendaChoice, onStartGeneration, onPreview, onApproveAndNext, onDownloadZip }) => (
+const ChatPanel = ({ messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus, structuredMarkdown, setStructuredMarkdown, onApproval, onAgendaChoice, slideOutline, onOutlineChange, onInsertSlide, onDeleteSlide, onStartGeneration, onPreview, onApproveAndNext, onDownloadZip }) => (
   <div className="w-2/3 bg-white/5 rounded-xl flex flex-col border border-white/10 overflow-hidden">
     {/* Chat Messages */}
     <div className="flex-grow p-6 overflow-y-auto space-y-4">
@@ -174,17 +178,59 @@ const ChatPanel = ({ messages, userInput, setUserInput, handleSendMessage, chatE
         </div>
       )}
 
-      {/* スライド生成開始ボタン */}
+      {/* ▼▼▼ ここから構成案の編集UI（削除・挿入機能付き）です ▼▼▼ */}
       {appStatus === 'outline_created' && (
-        <div className="bg-black/20 p-4 rounded-lg flex justify-center">
+        <div className="bg-black/20 p-4 rounded-lg space-y-4">
+          <p className="text-sm text-gray-300 mb-2 font-semibold">
+            構成案が生成されました。内容を編集し、スライドの追加や削除ができます。
+          </p>
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+            {slideOutline.map((slide, index) => (
+              <div key={index} className="bg-gray-900/50 border border-white/10 rounded-lg p-4">
+                <label className="text-xs font-bold text-gray-400 mb-2 block">スライド {index + 1} - タイトル</label>
+                <input
+                  type="text"
+                  value={slide.title}
+                  onChange={(e) => onOutlineChange(index, 'title', e.target.value)}
+                  className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">スライド {index + 1} - 要約</label>
+                <textarea
+                  value={slide.summary}
+                  onChange={(e) => onOutlineChange(index, 'summary', e.target.value)}
+                  rows={3}
+                  className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+                <div className="flex justify-end space-x-2 mt-3">
+                   <button
+                    onClick={() => onInsertSlide(index)}
+                    className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-xs font-medium rounded-md transition-colors"
+                  >
+                    この下にスライドを挿入
+                  </button>
+                  <button
+                    onClick={() => onDeleteSlide(index)}
+                    className="px-3 py-1 bg-red-700 hover:bg-red-600 text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                    disabled={slideOutline.length <= 1}
+                  >
+                    このスライドを削除
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-center pt-2">
             <button
-                onClick={onStartGeneration}
-                className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors"
+              onClick={onStartGeneration}
+              className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors"
+              disabled={slideOutline.length === 0}
             >
-                構成案を承認し、スライド生成を開始する
+              構成案を承認し、スライド生成を開始する
             </button>
+          </div>
         </div>
       )}
+      {/* ▲▲▲ ここまで構成案の編集UIです ▲▲▲ */}
 
       {/* ZIPダウンロードボタン */}
       {appStatus === 'all_slides_generated' && (
@@ -511,7 +557,6 @@ export default function App() {
         ? '- 2枚目は「アジェンダ」ページとし、3枚目以降の内容の目次を生成してください。'
         : '';
 
-      // アジェンダの有無に応じて、出力形式の例を動的に変更
       const outputFormatExample = includeAgenda
         ? `[
   {"title": "(ここにタイトルページのタイトル)", "summary": "(ここにタイトルページの簡単な説明や発表者名など)"},
@@ -546,7 +591,6 @@ ${structuredMarkdown}`;
       const response = await result.response;
       let jsonText = response.text();
 
-      // Clean up the JSON response
       jsonText = jsonText.replace(/^```json\s*|```\s*$/g, '');
 
       const outline = JSON.parse(jsonText);
@@ -554,9 +598,8 @@ ${structuredMarkdown}`;
       console.log('[INFO] Step 1.8: Received slide outline from API.');
       setSlideOutline(outline);
       setAppStatus('outline_created');
+      setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
 
-      const outlineText = "構成案が生成されました。\n\n" + outline.map((slide, index) => `${index + 1}. ${slide.title}`).join('\n');
-      setMessages(prev => [...prev, { type: 'system', text: outlineText }]);
 
     } catch (error) {
       console.error('[FATAL] API Error:', error);
@@ -567,9 +610,52 @@ ${structuredMarkdown}`;
   };
 
   /**
+   * 構成案のタイトルや要約が編集されたときにStateを更新する関数
+   * @param {number} index 編集対象のスライドのインデックス
+   * @param {'title' | 'summary'} field 編集対象のフィールド
+   * @param {string} value 新しい値
+   */
+  const handleOutlineChange = (index, field, value) => {
+    const newOutline = [...slideOutline];
+    newOutline[index][field] = value;
+    setSlideOutline(newOutline);
+  };
+
+  /**
+   * ▼▼▼ ここからスライドの削除と挿入のハンドラを追加しました ▼▼▼
+   */
+  /**
+   * 指定されたインデックスのスライドを削除する関数
+   * @param {number} indexToDelete 削除するスライドのインデックス
+   */
+  const handleDeleteSlide = (indexToDelete) => {
+    const newOutline = slideOutline.filter((_, index) => index !== indexToDelete);
+    setSlideOutline(newOutline);
+  };
+
+  /**
+   * 指定されたインデックスの次に新しいスライドを挿入する関数
+   * @param {number} indexToInsertAfter 挿入位置の基準となるスライドのインデックス
+   */
+  const handleInsertSlide = (indexToInsertAfter) => {
+    const newSlide = { title: '新しいスライド', summary: 'ここに内容の要約を入力' };
+    const newOutline = [
+      ...slideOutline.slice(0, indexToInsertAfter + 1),
+      newSlide,
+      ...slideOutline.slice(indexToInsertAfter + 1)
+    ];
+    setSlideOutline(newOutline);
+  };
+  // ▲▲▲ ここまでスライドの削除と挿入のハンドラです ▲▲▲
+
+  /**
    * 構成案が承認され、スライド生成サイクルを開始する関数
    */
   const handleStartGeneration = () => {
+    if (slideOutline.length === 0) {
+        setMessages(prev => [...prev, { type: 'system', text: '生成するスライドがありません。少なくとも1枚はスライドを残してください。'}]);
+        return;
+    }
     const firstSlide = slideOutline[0];
     console.log(`[INFO] Step 2.1: Starting generation for slide 1: ${firstSlide.title}`);
     setAppStatus('generating_slides');
@@ -620,8 +706,9 @@ ${visualHint}
 ### HTML生成の厳格なルール
 - **最重要:** 生成するコンテンツはHTMLコードのみです。解説や前置きは一切不要です。\`<!DOCTYPE html>\`から\`</html>\`までを出力してください。
 - CSSは\`<style>\`タグ内に、JSは\`<script>\`タグ内に記述してください。ただし、**アニメーション、ページ遷移、ホバーエフェクトなどの動的要素は一切含めないでください。**
-- スライドのサイズは厳密に幅1280px、高さ720pxとします。\`<body>\`タグに直接スタイルを適用するか、全体をラップする\`<div style="width: 1280px; height: 720px; overflow: hidden;">\`を作成してください。
-- 全ての要素(テキスト、図、画像など)はこの1280×720pxの領域内に完全に収めてください。
+- スライドのサイズは厳密に幅1280px、高さ720pxとします。\`<body>\`タグに直接スタイルを適用するか、全体をラップする\`<div class="slide-container" style="width: 1280px; height: 720px; overflow: hidden;">\`を作成してください。
+- **【追加ルール】余白の確保:** 全体をラップするコンテナ（例: .slide-container）には \`box-sizing: border-box;\` を適用した上で、**上下左右に40pxのパディング**を設定してください。このパディング（余白）領域には、背景以外のいかなるコンテンツ（テキスト、図、アイコンなど）も絶対に配置してはなりません。
+- 全ての要素(テキスト、図、画像など)はこの1280×720pxの領域（パディングの内側）に完全に収めてください。
 - テキストは単語の途中で不自然に改行されないように、CSSの\`word-break: keep-all;\`や\`overflow-wrap: break-word;\`を適切に使用してください。
 - 使用するフォントは、\`@import\`で読み込めるWebフォント（例: Google Fontsの'Inter'や'Noto Sans JP'）を指定してください。
 - アイコンを使用する場合は、\`<svg>\`タグを直接HTMLに埋め込んでください。外部画像ファイル(\`<img>\`タグ)は使用しないでください。
@@ -648,7 +735,7 @@ ${visualHint}
     } catch (error) {
       console.error('[FATAL] API Error:', error);
       setMessages(prev => [...prev, { type: 'system', text: `スライド生成中にAPIエラーが発生しました: ${error.message}` }]);
-      setAppStatus('outline_created'); // エラー時は構成案承認画面に戻す
+      setAppStatus('outline_created');
     } finally {
       setIsProcessing(false);
     }
@@ -666,14 +753,21 @@ ${visualHint}
     console.debug('[DEBUG] Step 2.2: User modification request:', modificationRequest);
 
     const prompt = `### あなたの役割
-あなたは、既存のHTMLコードをユーザーの指示に基づいて精密に修正するHTMLコーダーです。
+あなたは、ユーザーの指示を100%忠実に、かつ正確にHTMLコードへ反映させる精密なコーディングアシスタントです。
 
 ### 指示
-添付されたHTMLコードを、以下の「ユーザーからの修正指示」に基づいて修正してください。
+以下の「思考プロセス」と「厳格なルール」に従って、「修正対象のHTMLコード」を「ユーザーからの修正指示」に基づき修正してください。
+
+### 思考プロセス
+1. まず、「修正対象のHTMLコード」の構造と内容を完全に理解します。
+2. 次に、「ユーザーからの修正指示」を注意深く読み、変更すべき点を正確に特定します。
+3. 特定した変更点を反映させるために、HTMLコードのどこを、どのように書き換えるべきかを計画します。
+4. 【最重要】ルールを念頭に置きながら、計画通りにコードを修正します。
+5. 修正後の完全なHTMLコードのみを出力します。
 
 ### 厳格なルール
-- **最重要:** 指示された箇所以外のデザイン、レイアウト、テキストは**絶対に、いかなる理由があっても変更しないでください。**
-- 変更は最小限に留めてください。
+- **【最重要】**: 「ユーザーからの修正指示」は、他のいかなるルールや制約よりも優先されます。指示を完全に満たすことを最優先してください。
+- ユーザーの指示を実現するために必要な、最小限のコード変更のみを行ってください。指示と無関係な部分のコード（デザイン、レイアウト、テキストなど）は、いかなる理由があっても変更しないでください。
 - 出力は修正後の完全なHTMLコードのみとし、解説などは一切含めないでください。
 
 ### ユーザーからの修正指示
@@ -684,6 +778,7 @@ ${modificationRequest}
 ${currentSlideHtml}
 \`\`\`
 `;
+
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
@@ -720,11 +815,13 @@ ${currentSlideHtml}
   };
 
   /**
+   * ▼▼▼ スライド保存ロジックを修正しました ▼▼▼
    * 現在のスライドを承認し、次のスライド生成に進む関数
    */
   const handleApproveAndNext = () => {
     console.log(`[INFO] Step 2.7: User approved slide ${currentSlideIndex + 1}. HTML saved.`);
-    setGeneratedSlides(prev => [...prev, currentSlideHtml]);
+    const newGeneratedSlides = [...generatedSlides, currentSlideHtml];
+    setGeneratedSlides(newGeneratedSlides);
     setCurrentSlideHtml('');
 
     const nextIndex = currentSlideIndex + 1;
@@ -732,10 +829,9 @@ ${currentSlideHtml}
     if (nextIndex < slideOutline.length) {
       setCurrentSlideIndex(nextIndex);
       const nextSlide = slideOutline[nextIndex];
-      setMessages(prev => [...prev, { type: 'system', text: `スライド ${currentSlideIndex} を承認しました。\n\n次のスライド「${nextSlide.title}」の生成を開始します。`}]);
+      setMessages(prev => [...prev, { type: 'system', text: `スライド ${currentSlideIndex + 1} を承認しました。\n\n次のスライド「${nextSlide.title}」の生成を開始します。`}]);
       generateSlide(nextIndex);
     } else {
-      // 最終スライドを保存してから完了画面へ
       setAppStatus('all_slides_generated');
       console.log('[INFO] Step 3: All slides validated and stored.');
       setMessages(prev => [...prev, { type: 'system', text: "全てのステップが完了しました！\n\n下のボタンから、生成された全スライドをZIPファイルとしてダウンロードできます。"}]);
@@ -743,6 +839,7 @@ ${currentSlideHtml}
   };
 
   /**
+   * ▼▼▼ ZIPダウンロードのロジックを修正しました ▼▼▼
    * 生成された全スライドをZIPファイルとしてダウンロードする関数
    */
   const handleDownloadZip = async () => {
@@ -752,16 +849,8 @@ ${currentSlideHtml}
     
     try {
       const zip = new JSZip();
-      // NOTE: `generatedSlides` には最後のスライドが含まれていないため、
-      // `all_slides_generated` ステータスになる前の最後のスライド `currentSlideHtml` を追加する必要がある。
-      // ただし、現在のロジックでは handleApproveAndNext で最後のスライドが `generatedSlides` に追加された *後* に
-      // `all_slides_generated` に遷移するため、このままで正しい。
-      const finalSlides = [...generatedSlides];
-      if (appStatus === 'all_slides_generated' && currentSlideIndex === slideOutline.length - 1 && currentSlideHtml) {
-           // この条件は通常発生しないはずだが、念のため
-      }
-
-      finalSlides.forEach((html, index) => {
+      
+      generatedSlides.forEach((html, index) => {
         zip.file(`s${index + 1}.html`, html);
       });
 
@@ -820,8 +909,11 @@ ${currentSlideHtml}
           structuredMarkdown={structuredMarkdown}
           setStructuredMarkdown={setStructuredMarkdown}
           onApproval={handleMarkdownApproval}
-  
           onAgendaChoice={handleAgendaChoice}
+          slideOutline={slideOutline}
+          onOutlineChange={handleOutlineChange}
+          onInsertSlide={handleInsertSlide}
+          onDeleteSlide={handleDeleteSlide}
           onStartGeneration={handleStartGeneration}
           onPreview={handlePreview}
           onApproveAndNext={handleApproveAndNext}
