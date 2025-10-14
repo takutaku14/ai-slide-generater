@@ -217,7 +217,7 @@ const ChatPanel = ({ messages, userInput, setUserInput, handleSendMessage, chatE
         <button
           onClick={handleSendMessage}
           className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 hover:bg-indigo-500 rounded-full transition-colors disabled:opacity-50"
-          disabled={appStatus !== 'slide_generated'}
+          disabled={appStatus !== 'slide_generated' || !userInput.trim()}
         >
           <SendIcon />
         </button>
@@ -452,7 +452,8 @@ export default function App() {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-      const prompt = `### 指示\nあなたは、与えられたテキストの論理構造を解析し、情報を整理する専門家です。以下のテキストを、後続の処理で扱いやすいように、見出し、リスト、段落が明確に分かるMarkdown形式に整理してください。元のテキストに含まれる重要な情報は一切省略せず、忠実に再構成してください。\n\n### テキスト\n${text}`;
+      const prompt = `### 指示\nあなたは、与えられたテキストをクリーンアップし、論理構造を解析する専門家です。以下のテキストに含まれる、PDF抽出時に発生しがちな単語間の不自然なスペース（例：「ドキュメント」が「ドキュ メント」となっている箇所）を修正し、自然な文章にしてください。
+その上で、内容を論理的に整理し、見出し、リスト、段落が明確に分かるMarkdown形式に再構成してください。元のテキストに含まれる重要な情報は一切省略しないでください。\n\n### テキスト\n${text}`;
 
       console.log('[INFO] Step 1.3: Sending text to Gemini API for structuring.');
       console.debug('[DEBUG] Step 1.3: Prompt for structuring text:', prompt);
@@ -510,6 +511,19 @@ export default function App() {
         ? '- 2枚目は「アジェンダ」ページとし、3枚目以降の内容の目次を生成してください。'
         : '';
 
+      // アジェンダの有無に応じて、出力形式の例を動的に変更
+      const outputFormatExample = includeAgenda
+        ? `[
+  {"title": "(ここにタイトルページのタイトル)", "summary": "(ここにタイトルページの簡単な説明や発表者名など)"},
+  {"title": "アジェンダ", "summary": "(3枚目以降のタイトルリスト)"},
+  {"title": "(3枚目のタイトル)", "summary": "(3枚目の内容の要約)"}
+]`
+        : `[
+  {"title": "(ここにタイトルページのタイトル)", "summary": "(ここにタイトルページの簡単な説明や発表者名など)"},
+  {"title": "(2枚目のタイトル)", "summary": "(2枚目の内容の要約)"},
+  {"title": "(3枚目のタイトル)", "summary": "(3枚目の内容の要約)"}
+]`;
+
       const prompt = `### 指示
 あなたはプロのプレゼンテーション構成作家です。以下のMarkdownテキストを分析し、プレゼンテーションの構成案を作成してください。構成案は、各スライドの「タイトル」と「そのスライドで説明する内容の要約」をJSONのリスト形式で出力してください。
 
@@ -520,11 +534,7 @@ ${agendaCondition}
 - 全体で8〜12枚程度のスライド構成になるように調整してください。
 
 ### 出力形式(JSON)
-[
-  {"title": "(ここにタイトルページのタイトル)", "summary": "(ここにタイトルページの簡単な説明や発表者名など)"},
-  {"title": "アジェンダ", "summary": "(3枚目以降のタイトルリスト)"},
-  {"title": "(3枚目のタイトル)", "summary": "(3枚目の内容の要約)"}
-]
+${outputFormatExample}
 
 ### Markdownテキスト
 ${structuredMarkdown}`;
@@ -536,6 +546,7 @@ ${structuredMarkdown}`;
       const response = await result.response;
       let jsonText = response.text();
 
+      // Clean up the JSON response
       jsonText = jsonText.replace(/^```json\s*|```\s*$/g, '');
 
       const outline = JSON.parse(jsonText);
@@ -618,9 +629,9 @@ ${visualHint}
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
-      console.log('[INFO] Step 2.1: Sending request to Gemini API for HTML generation.');
+      console.log(`[INFO] Step 2.1: Starting generation for slide ${slideIndex + 1}: ${currentSlide.title}`);
       console.debug('[DEBUG] Step 2.1: Prompt for HTML generation:', prompt);
 
       const result = await model.generateContent(prompt);
@@ -640,6 +651,61 @@ ${visualHint}
       setAppStatus('outline_created'); // エラー時は構成案承認画面に戻す
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  /**
+   * ユーザーからの修正指示に基づき、現在のスライドを修正するAPI通信関数
+   * @param {string} modificationRequest ユーザーが入力した修正指示
+   */
+  const modifySlide = async (modificationRequest) => {
+    setIsProcessing(true);
+    setProcessingStatus(`スライド ${currentSlideIndex + 1} を修正中...`);
+
+    console.log(`[INFO] Step 2.2: User requested modification for slide ${currentSlideIndex + 1}.`);
+    console.debug('[DEBUG] Step 2.2: User modification request:', modificationRequest);
+
+    const prompt = `### あなたの役割
+あなたは、既存のHTMLコードをユーザーの指示に基づいて精密に修正するHTMLコーダーです。
+
+### 指示
+添付されたHTMLコードを、以下の「ユーザーからの修正指示」に基づいて修正してください。
+
+### 厳格なルール
+- **最重要:** 指示された箇所以外のデザイン、レイアウト、テキストは**絶対に、いかなる理由があっても変更しないでください。**
+- 変更は最小限に留めてください。
+- 出力は修正後の完全なHTMLコードのみとし、解説などは一切含めないでください。
+
+### ユーザーからの修正指示
+${modificationRequest}
+
+### 修正対象のHTMLコード
+\`\`\`html
+${currentSlideHtml}
+\`\`\`
+`;
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
+        console.log('[INFO] Step 2.2: Sending request to Gemini API for HTML modification.');
+        console.debug('[DEBUG] Step 2.2: Prompt for HTML modification:', prompt);
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let modifiedHtml = response.text();
+
+        modifiedHtml = modifiedHtml.replace(/^```html\s*|```\s*$/g, '').trim();
+
+        console.log(`[INFO] Step 2.2: Received modified HTML for slide ${currentSlideIndex + 1}.`);
+        setCurrentSlideHtml(modifiedHtml);
+        setMessages(prev => [...prev, { type: 'system', text: 'スライドが修正されました。再度プレビューで確認してください。' }]);
+
+    } catch (error) {
+        console.error('[FATAL] API Error:', error);
+        setMessages(prev => [...prev, { type: 'system', text: `スライドの修正中にAPIエラーが発生しました: ${error.message}` }]);
+    } finally {
+        setIsProcessing(false);
     }
   };
 
@@ -666,9 +732,10 @@ ${visualHint}
     if (nextIndex < slideOutline.length) {
       setCurrentSlideIndex(nextIndex);
       const nextSlide = slideOutline[nextIndex];
-      setMessages(prev => [...prev, { type: 'system', text: `スライド ${currentSlideIndex + 1} を承認しました。\n\n次のスライド「${nextSlide.title}」の生成を開始します。`}]);
+      setMessages(prev => [...prev, { type: 'system', text: `スライド ${currentSlideIndex} を承認しました。\n\n次のスライド「${nextSlide.title}」の生成を開始します。`}]);
       generateSlide(nextIndex);
     } else {
+      // 最終スライドを保存してから完了画面へ
       setAppStatus('all_slides_generated');
       console.log('[INFO] Step 3: All slides validated and stored.');
       setMessages(prev => [...prev, { type: 'system', text: "全てのステップが完了しました！\n\n下のボタンから、生成された全スライドをZIPファイルとしてダウンロードできます。"}]);
@@ -685,7 +752,16 @@ ${visualHint}
     
     try {
       const zip = new JSZip();
-      generatedSlides.forEach((html, index) => {
+      // NOTE: `generatedSlides` には最後のスライドが含まれていないため、
+      // `all_slides_generated` ステータスになる前の最後のスライド `currentSlideHtml` を追加する必要がある。
+      // ただし、現在のロジックでは handleApproveAndNext で最後のスライドが `generatedSlides` に追加された *後* に
+      // `all_slides_generated` に遷移するため、このままで正しい。
+      const finalSlides = [...generatedSlides];
+      if (appStatus === 'all_slides_generated' && currentSlideIndex === slideOutline.length - 1 && currentSlideHtml) {
+           // この条件は通常発生しないはずだが、念のため
+      }
+
+      finalSlides.forEach((html, index) => {
         zip.file(`s${index + 1}.html`, html);
       });
 
@@ -710,9 +786,13 @@ ${visualHint}
   };
 
 
-  /** 送信ボタンがクリックされたときの処理（現時点では未実装） */
+  /** 送信ボタンがクリックされたときの処理 */
   const handleSendMessage = () => {
-      // TODO: Implement message sending logic for modifications
+    if (!userInput.trim() || appStatus !== 'slide_generated') return;
+    
+    setMessages(prev => [...prev, { type: 'user', text: userInput }]);
+    modifySlide(userInput);
+    setUserInput('');
   };
 
   // --- Render ---
