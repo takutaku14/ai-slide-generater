@@ -54,10 +54,8 @@ ${text}`,
 - \`icon_list\`: **点付き箇条書き**など、順序のないリスト用。
 
 ### 条件
-// ★★★ ここからが修正点 ★★★
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
-// ★★★ ここまでが修正点 ★★★
-- **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（・ や 1.）を使用してください。
+- **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（- や 1.）を使用してください。
 - テキストの内容が2〜4つの項目を**比較・対比**している場合、または**並列に紹介**している場合は、\`icon_list\`や\`vertical_steps\`よりも\`two_points\`、\`three_points\`、\`four_points\`の使用を優先してください。
 - **箇条書きが中心のスライド**を作成する場合、以下のテンプレートを優先的に使用してください。
   - **番号付きリスト**には \`vertical_steps\` を選択します。
@@ -65,7 +63,11 @@ ${text}`,
 - \`vertical_steps\` または \`icon_list\` を選択した場合、\`summary\`は空にし、代わりに\`items\`というキーで要素の配列を生成してください。
   - \`icon_list\` の場合、各要素は\`{ "title": "...", "description": "...", "icon_description": "..." }\`の形式です。
   - \`vertical_steps\` の場合、各要素は\`{ "title": "...", "description": "..." }\`の形式です（アイコン不要）。
-- \`two_points\`等のpoints系テンプレートを使う場合、\`summary\`は空にし、\`points\`配列を生成してください。
+// ★★★ ここからが修正点 ★★★
+  - **重要ルール**: \`items\` 配列内の各項目の \`description\` は、スライドのレイアウトが崩れないよう、**非常に簡潔な要約（最大50文字程度）** にしてください。
+// ★★★ ここまでが修正点 ★★★
+- \`two_points\`、\`three_points\`、\`four_points\`のテンプレートを使う場合、\`summary\`は空にし、代わりに\`points\`というキーで要素の配列を生成してください。
+  - \`points\` 配列の各要素は、必ず \`{ "title": "...", "summary": "...", "icon_description": "..." }\` の形式にしてください。
 - \`content_left_infographic_right\` テンプレートを選択した場合、**スライドの本文を必ず \`summary\` キーに記述**してください。インフォグラフィックが必要な場合は、\`infographic\` オブジェクトを別途生成してください。
 ${agendaCondition}
 ${sectionHeaderCondition}
@@ -689,8 +691,10 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart }) => {
                     <input type="text" value={point.title} onChange={(e) => handlePointChange(index, pointIndex, 'title', e.target.value)} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">ポイント {pointIndex + 1} - 内容</label>
                     <textarea value={point.summary} onChange={(e) => handlePointChange(index, pointIndex, 'summary', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                    {/* ★★★ ここからが修正点 ★★★ */}
                     <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">ポイント {pointIndex + 1} - アイコン指示</label>
                     <textarea value={point.icon_description} onChange={(e) => handlePointChange(index, pointIndex, 'icon_description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                    {/* ★★★ ここまでが修正点 ★★★ */}
                   </div>
                 ))}
               </div>
@@ -803,6 +807,14 @@ const ChatPanel = ({ chatState }) => (
     <div className="flex-grow p-6 overflow-y-auto space-y-4">
       <MessageList messages={chatState.messages} />
       
+      {chatState.apiErrorStep && (
+        <div className="bg-black/20 p-4 rounded-lg flex justify-center">
+          <button onClick={chatState.handleRetry} className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-sm font-medium rounded-md transition-colors">
+            再試行
+          </button>
+        </div>
+      )}
+
       {chatState.appStatus === APP_STATUS.STRUCTURED && <MarkdownEditor markdown={chatState.structuredMarkdown} setMarkdown={chatState.setStructuredMarkdown} onApprove={chatState.handleMarkdownApproval} />}
       {chatState.appStatus === APP_STATUS.SELECTING_THEME && <ThemeSelector onSelect={chatState.handleThemeSelection} />}
       {chatState.appStatus === APP_STATUS.CREATING_OUTLINE && <AgendaSelector onSelect={chatState.handleAgendaChoice} />}
@@ -886,6 +898,8 @@ export default function App() {
   const [slideOutline, setSlideOutline] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
+
+  const [apiErrorStep, setApiErrorStep] = useState(null);
   
   const [theme, setTheme] = useState('dark');
   const [includeAgenda, setIncludeAgenda] = useState(false);
@@ -940,11 +954,10 @@ export default function App() {
       return text;
     } catch (error) {
       console.error(`[FATAL] API Error during ${actionName}:`, error);
-      setMessages(prev => [...prev, { type: 'system', text: `${actionName}中にAPIエラーが発生しました: ${error.message}` }]);
-      return null;
+      // ▼▼▼ 修正点: UIへのメッセージ表示を削除し、エラー内容を呼び出し元に返す ▼▼▼
+      return { error: `APIエラーが発生しました: ${error.message}` }; 
     }
   };
-
 
   // --- Handlers ---
   const handleApiKeySave = () => {
@@ -953,6 +966,22 @@ export default function App() {
       setApiKey(tempApiKey);
       setIsApiKeyModalOpen(false);
       setMessages([{ type: 'system', text: 'APIキーが保存されました。スライドの元になるドキュメントをアップロードしてください。' }]);
+    }
+  };
+
+  const handleRetry = () => {
+    if (apiErrorStep === 'structure') {
+      // テキスト抽出は完了しているので、再度構造化処理を呼び出す
+      // onTextExtracted は内部でテキストを引数に取るため、ここでは直接呼び出さず、
+      // ユーザーに再アップロードを促すか、抽出済みテキストをStateに持つ必要がある。
+      // 今回はシンプルにするため、再度Markdown承認ステップから開始させる。
+      setMessages(prev => [...prev, { type: 'system', text: '再試行します。内容を再度承認してください。' }]);
+      setApiErrorStep(null);
+      setAppStatus(APP_STATUS.STRUCTURED);
+    } else if (apiErrorStep === 'outline') {
+      // アジェンダ選択とセクションヘッダー選択は完了しているため、再度構成案生成を呼び出す
+      const lastChoice = messages.slice().reverse().find(m => m.text.includes('セクションヘッダー'))?.text.includes('はい');
+      handleSectionHeaderChoice(lastChoice);
     }
   };
 
@@ -1001,14 +1030,19 @@ export default function App() {
     setMessages(prev => [...prev, { type: 'system', text: `テキスト抽出完了(${text.length}文字)。内容を構造化します。` }]);
     setAppStatus(APP_STATUS.STRUCTURING);
     setProcessingStatus('テキストを構造化中...');
+    setApiErrorStep(null); // 再試行の前にエラー状態をリセット
     
-    const markdown = await callGeminiApi(PROMPTS.structureText(text), 'gemini-2.5-flash-lite', 'テキスト構造化');
+    const result = await callGeminiApi(PROMPTS.structureText(text), 'gemini-2.5-flash-lite', 'テキスト構造化');
     
     setIsProcessing(false);
-    if (markdown) {
-      setStructuredMarkdown(markdown);
+    if (result && !result.error) {
+      setStructuredMarkdown(result);
       setAppStatus(APP_STATUS.STRUCTURED);
       setMessages(prev => [...prev, { type: 'system', text: 'テキストの構造化が完了しました。' }]);
+    } else {
+      // エラーハンドリング
+      setApiErrorStep('structure');
+      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せぬエラーが発生しました。' }]);
     }
   };
 
@@ -1042,20 +1076,26 @@ export default function App() {
     setAppStatus(APP_STATUS.GENERATING_OUTLINE);
     setIsProcessing(true);
     setProcessingStatus('構成案を生成中...');
+    setApiErrorStep(null); // 再試行の前にエラー状態をリセット
 
     const prompt = PROMPTS.createOutline(structuredMarkdown, includeAgenda, useSectionHeaders);
-    const jsonText = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案生成');
+    const result = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案生成');
     
     setIsProcessing(false);
-    if (jsonText) {
+    if (result && !result.error) {
       try {
-        const outline = JSON.parse(jsonText);
+        const outline = JSON.parse(result);
         setSlideOutline(outline);
         setAppStatus(APP_STATUS.OUTLINE_CREATED);
         setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
       } catch (error) {
-        setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。形式が不正です: ${error.message}` }]);
+        setApiErrorStep('outline');
+        setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
       }
+    } else {
+      // エラーハンドリング
+      setApiErrorStep('outline');
+      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せぬエラーが発生しました。' }]);
     }
   };
 
@@ -1314,6 +1354,7 @@ export default function App() {
         <FileUploadPanel isProcessing={isProcessing} processingStatus={processingStatus} fileName={fileName} handleDragOver={handleDragOver} handleDrop={handleDrop} onFileSelect={handleFileSelect} appStatus={appStatus} />
         <ChatPanel chatState={{
             messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus,
+            apiErrorStep, handleRetry,
             structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, handleThemeSelection, handleAgendaChoice, handleSectionHeaderChoice,
             slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration,
             currentSlideIndex, thinkingState,
