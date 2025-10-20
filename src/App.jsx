@@ -16,8 +16,9 @@ const APP_STATUS = {
   INITIAL: 'initial',
   STRUCTURING: 'structuring',
   STRUCTURED: 'structured',
-  SELECTING_THEME: 'selecting_theme', // New status
+  SELECTING_THEME: 'selecting_theme',
   CREATING_OUTLINE: 'creating_outline',
+  SELECTING_SECTION_HEADERS: 'selecting_section_headers',
   GENERATING_OUTLINE: 'generating_outline',
   OUTLINE_CREATED: 'outline_created',
   GENERATING_SLIDES: 'generating_slides',
@@ -34,45 +35,81 @@ const PROMPTS = {
 ### テキスト
 ${text}`,
 
-  createOutline: (markdown, includeAgenda) => {
+  createOutline: (markdown, includeAgenda, useSectionHeaders) => {
     const agendaCondition = includeAgenda
-      ? '- 2枚目は必ず"アジェンダ"ページとし、`template`は`title_slide`を選択してください。`summary`には3枚目以降のタイトルリストを記述します。'
-      : '';
-    
+      ? '- 2枚目は必ず"アジェンダ"ページとし、`template`は`agenda`を選択してください。`summary`には3枚目以降のタイトルを改行区切りでリストアップしてください。'
+      : '- **アジェンダページは絶対に作成しないでください。**';
+    const sectionHeaderCondition = useSectionHeaders
+      ? '- Markdownの主要な見出し（章やセクション）の前に、`template`が`section_header`のスライドを自動で挿入してください。'
+      : '- `section_header`テンプレートは使用しないでください。';
+
     return `### 指示
 あなたはプロのプレゼンテーション構成作家です。以下のMarkdownテキストを分析し、最も効果的なプレゼンテーションの構成案をJSON形式で作成してください。
 
 ### 利用可能なテンプレート
-- \`title_slide\`: タイトルとサブタイトルのみ。
-- \`section_header\`: 章の区切りを示す大きなタイトル。
-- \`quote\`: 強調したいメッセージや引用。
-- \`content_left_infographic_right\`: 左に文章、右に図解。
-- \`three_points\`: 3つの要点をアイコン付きで表示。
+- \`title_slide\`, \`agenda\`, \`section_header\`, \`quote\`
+- \`content_left_infographic_right\`: 文章と図解。
+- \`two_points\`, \`three_points\`, \`four_points\`: 2〜4つの要点を横並びで表示。
+- \`vertical_steps\`: **番号付き箇条書き**など、順序のあるリスト用。
+- \`icon_list\`: **点付き箇条書き**など、順序のないリスト用。
 
 ### 条件
-- 1枚目は必ず"タイトルページ"とし、\`template\`は\`title_slide\`を選択してください。
+// ★★★ ここからが修正点 ★★★
+- 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
+// ★★★ ここまでが修正点 ★★★
+- **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（・ や 1.）を使用してください。
+- テキストの内容が2〜4つの項目を**比較・対比**している場合、または**並列に紹介**している場合は、\`icon_list\`や\`vertical_steps\`よりも\`two_points\`、\`three_points\`、\`four_points\`の使用を優先してください。
+- **箇条書きが中心のスライド**を作成する場合、以下のテンプレートを優先的に使用してください。
+  - **番号付きリスト**には \`vertical_steps\` を選択します。
+  - **点付きリスト**には \`icon_list\` を選択します。
+- \`vertical_steps\` または \`icon_list\` を選択した場合、\`summary\`は空にし、代わりに\`items\`というキーで要素の配列を生成してください。
+  - \`icon_list\` の場合、各要素は\`{ "title": "...", "description": "...", "icon_description": "..." }\`の形式です。
+  - \`vertical_steps\` の場合、各要素は\`{ "title": "...", "description": "..." }\`の形式です（アイコン不要）。
+- \`two_points\`等のpoints系テンプレートを使う場合、\`summary\`は空にし、\`points\`配列を生成してください。
+- \`content_left_infographic_right\` テンプレートを選択した場合、**スライドの本文を必ず \`summary\` キーに記述**してください。インフォグラフィックが必要な場合は、\`infographic\` オブジェクトを別途生成してください。
 ${agendaCondition}
-- 話題の区切りには\`section_header\`を効果的に使用してください。
-- 3枚目以降は、Markdownの論理構造に従って内容を分割し、各スライドに最適な\`template\`を選択してください。
-- \`content_left_infographic_right\`を選択した場合、\`infographic\`オブジェクトに図解の詳細な説明を記述してください。
-- **\`three_points\`を選択した場合、\`summary\`は空にし、代わりに\`points\`というキーで3つの要素を持つ配列を生成してください。**
-  - 各要素は\`{ "title": "...", "summary": "...", "icon_description": "..." }\`という形式のオブジェクトです。
-  - \`icon_description\`には、そのポイントを象徴する**アイコンの具体的な説明**を記述してください。（例：「成長を示す上向き矢印のアイコン」）
-- 全体で8〜12枚程度のスライド構成になるように調整してください。
+${sectionHeaderCondition}
 
-### 出力形式(JSON)
+### 出力形式(JSON)の例
 - **最重要**: 出力はJSON配列の文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
 [
-  { "title": "タイトルページ", "summary": "発表者名など", "template": "title_slide" },
-  { "title": "第一章：概要", "summary": "", "template": "section_header" },
+  { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
   {
-    "title": "3つの主要技術",
+    "title": "システムの概要",
+    "summary": "このシステムは、最新のAI技術を活用して業務効率を劇的に向上させます。\\n主な特徴は以下の3点です。\\n1. 高速処理\\n2. 高い安全性\\n3. 簡単な操作性",
+    "template": "content_left_infographic_right",
+    "infographic": {
+      "needed": true,
+      "description": "中央に脳のアイコンを配置し、そこから「スピード」「セキュリティ」「使いやすさ」を示す3つのアイコンへ線が伸びている図"
+    }
+  },
+  {
+    "title": "3つのプラン比較",
     "summary": "",
     "template": "three_points",
     "points": [
-      { "title": "技術A", "summary": "技術Aの簡単な説明。", "icon_description": "歯車のアイコン" },
-      { "title": "技術B", "summary": "技術Bの簡単な説明。", "icon_description": "電球のアイコン" },
-      { "title": "技術C", "summary": "技術Cの簡単な説明。", "icon_description": "ネットワーク接続を示すアイコン" }
+      { "title": "ベーシックプラン", "summary": "個人利用に最適。基本的な機能を利用できます。", "icon_description": "一人の人物のシルエットアイコン" },
+      { "title": "プロプラン", "summary": "チームでの利用に最適。共同編集機能が強力です。", "icon_description": "複数の人物のシルエットアイコン" },
+      { "title": "エンタープライズプラン", "summary": "大規模組織向け。高度なセキュリティとサポートが含まれます。", "icon_description": "近代的なオフィスのビルアイコン" }
+    ]
+  },
+  {
+    "title": "プロジェクトの3ステップ",
+    "summary": "",
+    "template": "vertical_steps",
+    "items": [
+      { "title": "ステップ1：計画", "description": "目標設定とリソースの割り当て。" },
+      { "title": "ステップ2：実行", "description": "計画に基づきタスクを遂行。" },
+      { "title": "ステップ3：評価", "description": "結果を分析し、次の計画へ反映。" }
+    ]
+  },
+  {
+    "title": "主な特長",
+    "summary": "",
+    "template": "icon_list",
+    "items": [
+      { "title": "高速処理", "description": "独自のアルゴリズムによる高速化。", "icon_description": "ロケットのアイコン" },
+      { "title": "高い安全性", "description": "最新の暗号化技術を導入。", "icon_description": "盾のアイコン" }
     ]
   }
 ]
@@ -159,6 +196,37 @@ const SLIDE_TEMPLATES = {
 </body>
 </html>`,
 
+  agenda: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
+            --bg-color-light: #ffffff; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
+        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        ol { padding-left: 50px; }
+        li { font-size: 32px; color: var(--sub-text-color); line-height: 1.8; margin-bottom: 15px; }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        <ol>{agenda_items_html}</ol>
+    </div>
+</body>
+</html>`,
+
   section_header: `
 <!DOCTYPE html>
 <html lang="ja">
@@ -238,7 +306,7 @@ const SLIDE_TEMPLATES = {
         .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 30px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
         .slide-body { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex-grow: 1; }
-        .content { font-size: 22px; line-height: 1.8; color: var(--sub-text-color); }
+        .content { font-size: 22px; line-height: 1.8; color: var(--sub-text-color); white-space: pre-wrap; }
         #infographic-slot { display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
@@ -248,6 +316,52 @@ const SLIDE_TEMPLATES = {
         <div class="slide-body">
             <div class="content">{content}</div>
             <div id="infographic-slot">{infographic_svg}</div>
+        </div>
+    </div>
+</body>
+</html>`,
+  
+  // ▼▼▼ ここからが新規・更新箇所です ▼▼▼
+  two_points: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1; --card-bg-color-dark: rgba(15, 23, 42, 0.5);
+            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569; --card-bg-color-light: #ffffff;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); --card-bg-color: var(--card-bg-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); --card-bg-color: var(--card-bg-color-light); }
+        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
+        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        .points-container { display: flex; justify-content: space-around; gap: 40px; align-items: stretch; }
+        .point { background: var(--card-bg-color); border-radius: 12px; padding: 30px; flex: 1; border-top: 4px solid var(--accent-color); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .point-icon { height: 150px; width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
+        h2 { font-size: 28px; color: var(--text-color); margin: 0 0 15px; font-weight: 700; }
+        p { font-size: 20px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        <div class="points-container">
+            <div class="point">
+                <div class="point-icon">{icon_1_svg}</div>
+                <h2>{point_1_title}</h2>
+                <p>{point_1_summary}</p>
+            </div>
+            <div class="point">
+                <div class="point-icon">{icon_2_svg}</div>
+                <h2>{point_2_title}</h2>
+                <p>{point_2_summary}</p>
+            </div>
         </div>
     </div>
 </body>
@@ -276,7 +390,7 @@ const SLIDE_TEMPLATES = {
         .point { background: var(--card-bg-color); border-radius: 12px; padding: 25px; flex: 1; border-top: 4px solid var(--accent-color); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .point-icon { height: 140px; width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
         h2 { font-size: 26px; color: var(--text-color); margin: 0 0 15px; font-weight: 700; }
-        p { font-size: 18px; line-height: 1.7; color: var(--sub-text-color); margin: 0; }
+        p { font-size: 18px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
     </style>
 </head>
 <body class="{theme_class}">
@@ -302,6 +416,135 @@ const SLIDE_TEMPLATES = {
     </div>
 </body>
 </html>`,
+
+  four_points: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1; --card-bg-color-dark: rgba(15, 23, 42, 0.5);
+            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569; --card-bg-color-light: #ffffff;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); --card-bg-color: var(--card-bg-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); --card-bg-color: var(--card-bg-color-light); }
+        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
+        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 30px; }
+        h1 { font-size: 40px; margin: 0; color: var(--text-color); font-weight: 700; }
+        .points-container { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 25px; flex-grow: 1; }
+        .point { background: var(--card-bg-color); border-radius: 12px; padding: 20px; border-top: 4px solid var(--accent-color); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .point-icon { height: 80px; width: 100%; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
+        h2 { font-size: 22px; color: var(--text-color); margin: 0 0 10px; font-weight: 700; }
+        p { font-size: 16px; line-height: 1.6; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        <div class="points-container">
+            <div class="point">
+                <div class="point-icon">{icon_1_svg}</div>
+                <h2>{point_1_title}</h2>
+                <p>{point_1_summary}</p>
+            </div>
+            <div class="point">
+                <div class="point-icon">{icon_2_svg}</div>
+                <h2>{point_2_title}</h2>
+                <p>{point_2_summary}</p>
+            </div>
+            <div class="point">
+                <div class="point-icon">{icon_3_svg}</div>
+                <h2>{point_3_title}</h2>
+                <p>{point_3_summary}</p>
+            </div>
+            <div class="point">
+                <div class="point-icon">{icon_4_svg}</div>
+                <h2>{point_4_title}</h2>
+                <p>{point_4_summary}</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`,
+vertical_steps: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #94a3b8;
+            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
+        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        .steps-container { position: relative; padding-left: 60px; }
+        .timeline { position: absolute; left: 20px; top: 15px; bottom: 15px; width: 4px; background-color: var(--accent-color); opacity: 0.3; }
+        .step { position: relative; margin-bottom: 25px; }
+        .step-marker { position: absolute; left: -42px; top: 5px; width: 24px; height: 24px; background-color: var(--accent-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--bg-color); font-weight: 700; font-size: 14px; }
+        h2 { font-size: 28px; color: var(--text-color); margin: 0 0 8px; font-weight: 700; }
+        p { font-size: 20px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        <div class="steps-container">
+            <div class="timeline"></div>
+            {items_html}
+        </div>
+    </div>
+</body>
+</html>`,
+
+  icon_list: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #94a3b8;
+            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
+        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        .list-container { display: flex; flex-direction: column; gap: 30px; }
+        .list-item { display: flex; align-items: flex-start; gap: 25px; }
+        .item-icon { flex-shrink: 0; width: 64px; height: 64px; color: var(--accent-color); }
+        .item-content h2 { font-size: 26px; color: var(--text-color); margin: 0 0 8px; font-weight: 700; }
+        .item-content p { font-size: 20px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        <div class="list-container">
+            {items_html}
+        </div>
+    </div>
+</body>
+</html>`,
+  // ▲▲▲ ここまでが新規・更新箇所です ▲▲▲
 };
 
 // --- アイコンコンポーネント ---
@@ -394,48 +637,106 @@ const AgendaSelector = ({ onSelect }) => (
   </div>
 );
 
-const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart }) => (
-  <div className="bg-black/20 p-4 rounded-lg space-y-4">
-    <p className="text-sm text-gray-300 mb-2 font-semibold">構成案が生成されました。内容を編集し、スライドの追加や削除ができます。</p>
-    <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
-      {outline.map((slide, index) => (
-        <div key={index} className="bg-gray-900/50 border border-white/10 rounded-lg p-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold text-gray-400 mb-2 block">スライド {index + 1} - タイトル</label>
-              <input type="text" value={slide.title} onChange={(e) => onChange(index, 'title', e.target.value)} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-gray-400 mb-2 block">レイアウトテンプレート</label>
-              <select value={slide.template || ''} onChange={(e) => onChange(index, 'template', e.target.value)} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {Object.keys(SLIDE_TEMPLATES).map(templateName => (
-                  <option key={templateName} value={templateName}>{templateName}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">スライド {index + 1} - 要約（またはコンテンツ）</label>
-          <textarea value={slide.summary} onChange={(e) => onChange(index, 'summary', e.target.value)} rows={3} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
-          
-          {slide.infographic?.needed && (
-             <div>
-                <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">インフォグラフィック詳細指示</label>
-                <textarea value={slide.infographic.description} onChange={(e) => onChange(index, 'infographic', { ...slide.infographic, description: e.target.value })} rows={3} className="w-full bg-indigo-900/30 border border-indigo-500/50 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
-             </div>
-          )}
-
-          <div className="flex justify-end space-x-2 mt-3">
-            <button onClick={() => onInsert(index)} className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-xs font-medium rounded-md transition-colors">この下にスライドを挿入</button>
-            <button onClick={() => onDelete(index)} className="px-3 py-1 bg-red-700 hover:bg-red-600 text-xs font-medium rounded-md transition-colors disabled:opacity-50" disabled={outline.length <= 1}>このスライドを削除</button>
-          </div>
-        </div>
-      ))}
-    </div>
-    <div className="flex justify-center pt-2">
-      <button onClick={onStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors" disabled={outline.length === 0}>構成案を承認し、スライド生成を開始する</button>
-    </div>
+const SectionHeaderSelector = ({ onSelect }) => (
+  <div className="bg-black/20 p-4 rounded-lg flex justify-center items-center space-x-4">
+    <p className="text-sm text-gray-300">主要なセクションの前に区切りスライドを自動挿入しますか？</p>
+    <button onClick={() => onSelect(true)} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium rounded-md transition-colors">はい</button>
+    <button onClick={() => onSelect(false)} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-sm font-medium rounded-md transition-colors">いいえ</button>
   </div>
 );
+
+const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart }) => {
+  const handlePointChange = (slideIndex, pointIndex, field, value) => {
+    const newOutline = [...outline];
+    const newPoints = [...(newOutline[slideIndex].points || [])];
+    newPoints[pointIndex] = { ...newPoints[pointIndex], [field]: value };
+    onChange(slideIndex, 'points', newPoints);
+  };
+  
+  const handleItemChange = (slideIndex, itemIndex, field, value) => {
+    const newOutline = [...outline];
+    const newItems = [...(newOutline[slideIndex].items || [])];
+    newItems[itemIndex] = { ...newItems[itemIndex], [field]: value };
+    onChange(slideIndex, 'items', newItems);
+  };
+
+  return (
+    <div className="bg-black/20 p-4 rounded-lg space-y-4">
+      <p className="text-sm text-gray-300 mb-2 font-semibold">構成案が生成されました。内容を編集し、スライドの追加や削除ができます。</p>
+      <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+        {outline.map((slide, index) => (
+          <div key={index} className="bg-gray-900/50 border border-white/10 rounded-lg p-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-400 mb-2 block">スライド {index + 1} - タイトル</label>
+                <input type="text" value={slide.title} onChange={(e) => onChange(index, 'title', e.target.value)} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-400 mb-2 block">レイアウトテンプレート</label>
+                <select value={slide.template || ''} onChange={(e) => onChange(index, 'template', e.target.value)} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  {Object.keys(SLIDE_TEMPLATES).map(templateName => (
+                    <option key={templateName} value={templateName}>{templateName}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {['two_points', 'three_points', 'four_points'].includes(slide.template) ? (
+              <div className="space-y-3 mt-3">
+                {slide.points?.map((point, pointIndex) => (
+                  <div key={pointIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                    <label className="text-xs font-bold text-gray-400 mb-2 block">ポイント {pointIndex + 1} - タイトル</label>
+                    <input type="text" value={point.title} onChange={(e) => handlePointChange(index, pointIndex, 'title', e.target.value)} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">ポイント {pointIndex + 1} - 内容</label>
+                    <textarea value={point.summary} onChange={(e) => handlePointChange(index, pointIndex, 'summary', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                    <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">ポイント {pointIndex + 1} - アイコン指示</label>
+                    <textarea value={point.icon_description} onChange={(e) => handlePointChange(index, pointIndex, 'icon_description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                  </div>
+                ))}
+              </div>
+            ) : ['vertical_steps', 'icon_list'].includes(slide.template) ? (
+              <div className="space-y-3 mt-3">
+                {slide.items?.map((item, itemIndex) => (
+                  <div key={itemIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                    <label className="text-xs font-bold text-gray-400 mb-2 block">項目 {itemIndex + 1} - タイトル</label>
+                    <input type="text" value={item.title} onChange={(e) => handleItemChange(index, itemIndex, 'title', e.target.value)} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">項目 {itemIndex + 1} - 説明</label>
+                    <textarea value={item.description} onChange={(e) => handleItemChange(index, itemIndex, 'description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                    {slide.template === 'icon_list' && (
+                      <>
+                        <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">項目 {itemIndex + 1} - アイコン指示</label>
+                        <textarea value={item.icon_description} onChange={(e) => handleItemChange(index, itemIndex, 'icon_description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">スライド {index + 1} - 要約（またはコンテンツ）</label>
+                <textarea value={slide.summary} onChange={(e) => onChange(index, 'summary', e.target.value)} rows={3} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                {slide.infographic?.needed && (
+                   <div>
+                      <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">インフォグラフィック詳細指示</label>
+                      <textarea value={slide.infographic.description} onChange={(e) => onChange(index, 'infographic', { ...slide.infographic, description: e.target.value })} rows={3} className="w-full bg-indigo-900/30 border border-indigo-500/50 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                   </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2 mt-3">
+              <button onClick={() => onInsert(index)} className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-xs font-medium rounded-md transition-colors">この下にスライドを挿入</button>
+              <button onClick={() => onDelete(index)} className="px-3 py-1 bg-red-700 hover:bg-red-600 text-xs font-medium rounded-md transition-colors disabled:opacity-50" disabled={outline.length <= 1}>このスライドを削除</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-center pt-2">
+        <button onClick={onStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors" disabled={outline.length === 0}>構成案を承認し、スライド生成を開始する</button>
+      </div>
+    </div>
+  );
+};
 
 const DownloadButton = ({ onDownload }) => (
     <div className="bg-black/20 p-4 rounded-lg flex justify-center">
@@ -505,6 +806,7 @@ const ChatPanel = ({ chatState }) => (
       {chatState.appStatus === APP_STATUS.STRUCTURED && <MarkdownEditor markdown={chatState.structuredMarkdown} setMarkdown={chatState.setStructuredMarkdown} onApprove={chatState.handleMarkdownApproval} />}
       {chatState.appStatus === APP_STATUS.SELECTING_THEME && <ThemeSelector onSelect={chatState.handleThemeSelection} />}
       {chatState.appStatus === APP_STATUS.CREATING_OUTLINE && <AgendaSelector onSelect={chatState.handleAgendaChoice} />}
+      {chatState.appStatus === APP_STATUS.SELECTING_SECTION_HEADERS && <SectionHeaderSelector onSelect={chatState.handleSectionHeaderChoice} />}
       {chatState.appStatus === APP_STATUS.OUTLINE_CREATED && <OutlineEditor outline={chatState.slideOutline} onChange={chatState.handleOutlineChange} onInsert={chatState.handleInsertSlide} onDelete={chatState.handleDeleteSlide} onStart={chatState.handleStartGeneration} />}
       
       {(chatState.appStatus === APP_STATUS.GENERATING_SLIDES || chatState.appStatus === APP_STATUS.SLIDE_GENERATED) &&
@@ -586,6 +888,7 @@ export default function App() {
   const [processingStatus, setProcessingStatus] = useState('');
   
   const [theme, setTheme] = useState('dark');
+  const [includeAgenda, setIncludeAgenda] = useState(false);
 
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [generatedSlides, setGeneratedSlides] = useState([]);
@@ -724,13 +1027,23 @@ export default function App() {
     ]);
   };
 
-  const handleAgendaChoice = async (includeAgenda) => {
-    setMessages(prev => [...prev, { type: 'user', text: includeAgenda ? 'はい' : 'いいえ' }]);
+  const handleAgendaChoice = (choice) => {
+    setIncludeAgenda(choice);
+    setAppStatus(APP_STATUS.SELECTING_SECTION_HEADERS);
+    setMessages(prev => [
+      ...prev,
+      { type: 'user', text: `アジェンダ: ${choice ? 'はい' : 'いいえ'}` },
+      { type: 'system', text: '主要なセクションの前に区切りスライドを自動挿入しますか？' }
+    ]);
+  };
+  
+  const handleSectionHeaderChoice = async (useSectionHeaders) => {
+    setMessages(prev => [...prev, { type: 'user', text: `セクションヘッダー: ${useSectionHeaders ? 'はい' : 'いいえ'}` }]);
     setAppStatus(APP_STATUS.GENERATING_OUTLINE);
     setIsProcessing(true);
     setProcessingStatus('構成案を生成中...');
 
-    const prompt = PROMPTS.createOutline(structuredMarkdown, includeAgenda);
+    const prompt = PROMPTS.createOutline(structuredMarkdown, includeAgenda, useSectionHeaders);
     const jsonText = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案生成');
     
     setIsProcessing(false);
@@ -750,6 +1063,8 @@ export default function App() {
     const newOutline = [...slideOutline];
     if (field === 'infographic') {
       newOutline[index].infographic = value;
+    } else if (field === 'points') {
+      newOutline[index].points = value;
     } else {
       newOutline[index][field] = value;
     }
@@ -795,10 +1110,12 @@ export default function App() {
 
       const replacements = {
         '{theme_class}': `theme-${theme}`,
-        '{title}': currentSlide.title,
-        '{summary}': currentSlide.summary,
-        '{content}': currentSlide.summary,
+        '{title}': currentSlide.title || '',
+        '{summary}': currentSlide.summary || '',
+        '{content}': currentSlide.summary || '',
         '{infographic_svg}': '',
+        '{agenda_items_html}': '',
+        '{items_html}': '',
       };
 
       if (currentSlide.infographic?.needed) {
@@ -811,7 +1128,7 @@ export default function App() {
         replacements['{infographic_svg}'] = infographicSvg;
       }
       
-      if (currentSlide.template === 'three_points' && Array.isArray(currentSlide.points)) {
+      if (['two_points', 'three_points', 'four_points'].includes(currentSlide.template) && Array.isArray(currentSlide.points)) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
@@ -828,11 +1145,50 @@ export default function App() {
         });
       }
 
+      if (currentSlide.template === 'agenda') {
+        const agendaItems = currentSlide.summary.split('\n').map(item => `<li>${item}</li>`).join('');
+        replacements['{agenda_items_html}'] = agendaItems;
+      }
+      
+      if (['vertical_steps', 'icon_list'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
+        setThinkingState('designing');
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        let itemsHtml = '';
+        if(currentSlide.template === 'vertical_steps') {
+          itemsHtml = currentSlide.items.map((item, i) => `
+            <div class="step">
+              <div class="step-marker">${i + 1}</div>
+              <h2>${item.title || ''}</h2>
+              <p>${item.description || ''}</p>
+            </div>
+          `).join('');
+        } else if (currentSlide.template === 'icon_list') {
+          const iconPromises = currentSlide.items.map(item => {
+            const svgPrompt = PROMPTS.generateInfographic(item.icon_description);
+            return callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `Icon SVG for ${item.title}`);
+          });
+          const iconSvgs = await Promise.all(iconPromises);
+          
+          itemsHtml = currentSlide.items.map((item, i) => `
+            <div class="list-item">
+              <div class="item-icon">${iconSvgs[i] || ''}</div>
+              <div class="item-content">
+                <h2>${item.title || ''}</h2>
+                <p>${item.description || ''}</p>
+              </div>
+            </div>
+          `).join('');
+        }
+        replacements['{items_html}'] = itemsHtml;
+      }
+
       setThinkingState('coding');
       await new Promise(resolve => setTimeout(resolve, 800));
 
       finalHtml = Object.entries(replacements).reduce((acc, [key, value]) => {
-          return acc.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+          const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+          return acc.replace(regex, value);
       }, template);
 
       setMessages(prev => [...prev, { type: 'system', text: `スライド「${currentSlide.title}」が生成されました。\nプレビューで確認し、承認してください。`}]);
@@ -958,7 +1314,7 @@ export default function App() {
         <FileUploadPanel isProcessing={isProcessing} processingStatus={processingStatus} fileName={fileName} handleDragOver={handleDragOver} handleDrop={handleDrop} onFileSelect={handleFileSelect} appStatus={appStatus} />
         <ChatPanel chatState={{
             messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus,
-            structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, handleThemeSelection, handleAgendaChoice,
+            structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, handleThemeSelection, handleAgendaChoice, handleSectionHeaderChoice,
             slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration,
             currentSlideIndex, thinkingState,
             handlePreview, handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
