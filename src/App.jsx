@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import JSZip from 'jszip';
+import { THEMES } from './templates'; // ★★★ この行を追加 ★★★
 
 // pdf.js のワーカーを設定
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -166,388 +167,6 @@ ${currentSlideHtml}
 `
 };
 
-// --- スライドテンプレート (CSS変数でテーマ対応) ---
-const SLIDE_TEMPLATES = {
-  title_slide: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;900&display=swap');
-        :root {
-            --bg-color-dark: #0f172a; --text-color-dark: #f1f5f9; --accent-color-dark: #38bdf8; --sub-text-color-dark: #94a3b8;
-            --bg-color-light: #f8fafc; --text-color-light: #0f172a; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
-        .slide-container { width: 1280px; height: 720px; overflow: hidden; box-sizing: border-box; padding: 60px; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        h1 { font-size: 84px; font-weight: 900; margin: 0; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 span { color: var(--accent-color); }
-        p { font-size: 28px; margin: 20px 0 0; color: var(--sub-text-color); font-weight: 700; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <h1>{title}</h1>
-        <p>{summary}</p>
-    </div>
-</body>
-</html>`,
-
-  agenda: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
-            --bg-color-light: #ffffff; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
-        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
-        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        ol { padding-left: 50px; }
-        li { font-size: 32px; color: var(--sub-text-color); line-height: 1.8; margin-bottom: 15px; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <div class="slide-header"><h1>{title}</h1></div>
-        <ol>{agenda_items_html}</ol>
-    </div>
-</body>
-</html>`,
-
-  section_header: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #f1f5f9; --accent-color-dark: #38bdf8;
-            --bg-color-light: #e2e8f0; --text-color-light: #1e293b; --accent-color-light: #0284c7;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 60px; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; }
-        h1 { font-size: 96px; font-weight: 900; color: var(--text-color); margin: 0; line-height: 1.1; border-left: 10px solid var(--accent-color); padding-left: 40px; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <h1>{title}</h1>
-    </div>
-</body>
-</html>`,
-
-  quote: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #f1f5f9; --accent-color-dark: #38bdf8; --sub-text-color-dark: #94a3b8;
-            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 80px; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        blockquote { margin: 0; padding: 0; border-left: 8px solid var(--accent-color); padding-left: 40px; }
-        p { font-size: 48px; font-weight: 700; color: var(--text-color); margin: 0; }
-        footer { font-size: 24px; color: var(--sub-text-color); margin-top: 30px; align-self: flex-end; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <blockquote>
-            <p>“{title}”</p>
-        </blockquote>
-        <footer>{summary}</footer>
-    </div>
-</body>
-</html>`,
-
-  content_left_infographic_right: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
-            --bg-color-light: #ffffff; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
-        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 30px; }
-        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .slide-body { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex-grow: 1; }
-        .content { font-size: 22px; line-height: 1.8; color: var(--sub-text-color); white-space: pre-wrap; }
-        #infographic-slot { display: flex; align-items: center; justify-content: center; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <div class="slide-header"><h1>{title}</h1></div>
-        <div class="slide-body">
-            <div class="content">{content}</div>
-            <div id="infographic-slot">{infographic_svg}</div>
-        </div>
-    </div>
-</body>
-</html>`,
-  
-  // ▼▼▼ ここからが新規・更新箇所です ▼▼▼
-  two_points: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1; --card-bg-color-dark: rgba(15, 23, 42, 0.5);
-            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569; --card-bg-color-light: #ffffff;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); --card-bg-color: var(--card-bg-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); --card-bg-color: var(--card-bg-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
-        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
-        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .points-container { display: flex; justify-content: space-around; gap: 40px; align-items: stretch; }
-        .point { background: var(--card-bg-color); border-radius: 12px; padding: 30px; flex: 1; border-top: 4px solid var(--accent-color); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .point-icon { height: 150px; width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
-        h2 { font-size: 28px; color: var(--text-color); margin: 0 0 15px; font-weight: 700; }
-        p { font-size: 20px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <div class="slide-header"><h1>{title}</h1></div>
-        <div class="points-container">
-            <div class="point">
-                <div class="point-icon">{icon_1_svg}</div>
-                <h2>{point_1_title}</h2>
-                <p>{point_1_summary}</p>
-            </div>
-            <div class="point">
-                <div class="point-icon">{icon_2_svg}</div>
-                <h2>{point_2_title}</h2>
-                <p>{point_2_summary}</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`,
-
-  three_points: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1; --card-bg-color-dark: rgba(15, 23, 42, 0.5);
-            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569; --card-bg-color-light: #ffffff;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); --card-bg-color: var(--card-bg-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); --card-bg-color: var(--card-bg-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
-        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
-        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .points-container { display: flex; justify-content: space-around; gap: 30px; align-items: stretch; }
-        .point { background: var(--card-bg-color); border-radius: 12px; padding: 25px; flex: 1; border-top: 4px solid var(--accent-color); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .point-icon { height: 140px; width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
-        h2 { font-size: 26px; color: var(--text-color); margin: 0 0 15px; font-weight: 700; }
-        p { font-size: 18px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <div class="slide-header"><h1>{title}</h1></div>
-        <div class="points-container">
-            <div class="point">
-                <div class="point-icon">{icon_1_svg}</div>
-                <h2>{point_1_title}</h2>
-                <p>{point_1_summary}</p>
-            </div>
-            <div class="point">
-                <div class="point-icon">{icon_2_svg}</div>
-                <h2>{point_2_title}</h2>
-                <p>{point_2_summary}</p>
-            </div>
-            <div class="point">
-                <div class="point-icon">{icon_3_svg}</div>
-                <h2>{point_3_title}</h2>
-                <p>{point_3_summary}</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`,
-
-  four_points: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1; --card-bg-color-dark: rgba(15, 23, 42, 0.5);
-            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569; --card-bg-color-light: #ffffff;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); --card-bg-color: var(--card-bg-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); --card-bg-color: var(--card-bg-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
-        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 30px; }
-        h1 { font-size: 40px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .points-container { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 25px; flex-grow: 1; }
-        .point { background: var(--card-bg-color); border-radius: 12px; padding: 20px; border-top: 4px solid var(--accent-color); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .point-icon { height: 80px; width: 100%; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
-        h2 { font-size: 22px; color: var(--text-color); margin: 0 0 10px; font-weight: 700; }
-        p { font-size: 16px; line-height: 1.6; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <div class="slide-header"><h1>{title}</h1></div>
-        <div class="points-container">
-            <div class="point">
-                <div class="point-icon">{icon_1_svg}</div>
-                <h2>{point_1_title}</h2>
-                <p>{point_1_summary}</p>
-            </div>
-            <div class="point">
-                <div class="point-icon">{icon_2_svg}</div>
-                <h2>{point_2_title}</h2>
-                <p>{point_2_summary}</p>
-            </div>
-            <div class="point">
-                <div class="point-icon">{icon_3_svg}</div>
-                <h2>{point_3_title}</h2>
-                <p>{point_3_summary}</p>
-            </div>
-            <div class="point">
-                <div class="point-icon">{icon_4_svg}</div>
-                <h2>{point_4_title}</h2>
-                <p>{point_4_summary}</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`,
-vertical_steps: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #94a3b8;
-            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
-        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
-        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .steps-container { position: relative; padding-left: 60px; }
-        .timeline { position: absolute; left: 20px; top: 15px; bottom: 15px; width: 4px; background-color: var(--accent-color); opacity: 0.3; }
-        .step { position: relative; margin-bottom: 25px; }
-        .step-marker { position: absolute; left: -42px; top: 5px; width: 24px; height: 24px; background-color: var(--accent-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--bg-color); font-weight: 700; font-size: 14px; }
-        h2 { font-size: 28px; color: var(--text-color); margin: 0 0 8px; font-weight: 700; }
-        p { font-size: 20px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <div class="slide-header"><h1>{title}</h1></div>
-        <div class="steps-container">
-            <div class="timeline"></div>
-            {items_html}
-        </div>
-    </div>
-</body>
-</html>`,
-
-  icon_list: `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
-        :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #94a3b8;
-            --bg-color-light: #f1f5f9; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
-        }
-        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
-        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 40px; background: var(--bg-color); display: flex; flex-direction: column; }
-        .slide-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 40px; }
-        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .list-container { display: flex; flex-direction: column; gap: 30px; }
-        .list-item { display: flex; align-items: flex-start; gap: 25px; }
-        .item-icon { flex-shrink: 0; width: 64px; height: 64px; color: var(--accent-color); }
-        .item-content h2 { font-size: 26px; color: var(--text-color); margin: 0 0 8px; font-weight: 700; }
-        .item-content p { font-size: 20px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; }
-    </style>
-</head>
-<body class="{theme_class}">
-    <div class="slide-container">
-        <div class="slide-header"><h1>{title}</h1></div>
-        <div class="list-container">
-            {items_html}
-        </div>
-    </div>
-</body>
-</html>`,
-  // ▲▲▲ ここまでが新規・更新箇所です ▲▲▲
-};
 
 // --- アイコンコンポーネント ---
 const SettingsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 hover:text-white transition-colors"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>);
@@ -623,11 +242,38 @@ const MarkdownEditor = ({ markdown, setMarkdown, onApprove }) => (
   </div>
 );
 
-const ThemeSelector = ({ onSelect }) => (
-  <div className="bg-black/20 p-4 rounded-lg flex justify-center items-center space-x-4">
-    <p className="text-sm text-gray-300">プレゼンテーションのテーマを選択してください:</p>
-    <button onClick={() => onSelect('dark')} className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-md transition-colors">ダーク</button>
-    <button onClick={() => onSelect('light')} className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-black text-sm font-medium rounded-md transition-colors">ライト</button>
+const ThemeSelector = ({ selectedTheme, selectedDesign, onThemeSelect, onDesignSelect, onApprove }) => (
+  <div className="bg-black/20 p-4 rounded-lg space-y-4">
+    <div className="flex justify-center items-center space-x-4">
+      <p className="text-sm text-gray-300">1. プレゼンテーションのテーマを選択:</p>
+      {Object.entries(THEMES).map(([themeKey, themeValue]) => (
+        <button
+          key={themeKey}
+          onClick={() => onThemeSelect(themeKey)}
+          className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${selectedTheme === themeKey ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+        >
+          {themeValue.name}
+        </button>
+      ))}
+    </div>
+    <div className="flex justify-center items-center space-x-4 border-t border-white/10 pt-4">
+       <p className="text-sm text-gray-300">2. デザインを選択:</p>
+       <button
+          onClick={() => onDesignSelect('dark')}
+          className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${selectedDesign === 'dark' ? 'bg-gray-800 ring-2 ring-indigo-400' : 'bg-gray-800 hover:bg-gray-700'}`}
+        >
+          ダーク
+        </button>
+        <button
+          onClick={() => onDesignSelect('light')}
+          className={`px-6 py-2 text-black text-sm font-medium rounded-md transition-colors ${selectedDesign === 'light' ? 'bg-gray-200 ring-2 ring-indigo-400' : 'bg-gray-200 hover:bg-gray-300'}`}
+        >
+          ライト
+        </button>
+    </div>
+    <div className="flex justify-end pt-2">
+       <button onClick={onApprove} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors">決定して次へ</button>
+    </div>
   </div>
 );
 
@@ -647,7 +293,7 @@ const SectionHeaderSelector = ({ onSelect }) => (
   </div>
 );
 
-const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart }) => {
+const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme }) => {
   const handlePointChange = (slideIndex, pointIndex, field, value) => {
     const newOutline = [...outline];
     const newPoints = [...(newOutline[slideIndex].points || [])];
@@ -662,6 +308,9 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart }) => {
     onChange(slideIndex, 'items', newItems);
   };
 
+  // ★★★ この行を追加 ★★★
+  const availableTemplates = THEMES[selectedTheme]?.templates ? Object.keys(THEMES[selectedTheme].templates) : [];
+
   return (
     <div className="bg-black/20 p-4 rounded-lg space-y-4">
       <p className="text-sm text-gray-300 mb-2 font-semibold">構成案が生成されました。内容を編集し、スライドの追加や削除ができます。</p>
@@ -675,8 +324,9 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart }) => {
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-400 mb-2 block">レイアウトテンプレート</label>
+                {/* ★★★ select要素の中身を availableTemplates を使うように変更 ★★★ */}
                 <select value={slide.template || ''} onChange={(e) => onChange(index, 'template', e.target.value)} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  {Object.keys(SLIDE_TEMPLATES).map(templateName => (
+                  {availableTemplates.map(templateName => (
                     <option key={templateName} value={templateName}>{templateName}</option>
                   ))}
                 </select>
@@ -816,10 +466,15 @@ const ChatPanel = ({ chatState }) => (
       )}
 
       {chatState.appStatus === APP_STATUS.STRUCTURED && <MarkdownEditor markdown={chatState.structuredMarkdown} setMarkdown={chatState.setStructuredMarkdown} onApprove={chatState.handleMarkdownApproval} />}
-      {chatState.appStatus === APP_STATUS.SELECTING_THEME && <ThemeSelector onSelect={chatState.handleThemeSelection} />}
+      {chatState.appStatus === APP_STATUS.SELECTING_THEME && <ThemeSelector 
+        selectedTheme={chatState.selectedTheme} 
+        selectedDesign={chatState.design} 
+        onThemeSelect={chatState.handleThemeSelection} 
+        onDesignSelect={chatState.handleDesignSelection} 
+        onApprove={chatState.handleThemeApproval} />}
       {chatState.appStatus === APP_STATUS.CREATING_OUTLINE && <AgendaSelector onSelect={chatState.handleAgendaChoice} />}
       {chatState.appStatus === APP_STATUS.SELECTING_SECTION_HEADERS && <SectionHeaderSelector onSelect={chatState.handleSectionHeaderChoice} />}
-      {chatState.appStatus === APP_STATUS.OUTLINE_CREATED && <OutlineEditor outline={chatState.slideOutline} onChange={chatState.handleOutlineChange} onInsert={chatState.handleInsertSlide} onDelete={chatState.handleDeleteSlide} onStart={chatState.handleStartGeneration} />}
+      {chatState.appStatus === APP_STATUS.OUTLINE_CREATED && <OutlineEditor outline={chatState.slideOutline} onChange={chatState.handleOutlineChange} onInsert={chatState.handleInsertSlide} onDelete={chatState.handleDeleteSlide} onStart={chatState.handleStartGeneration} selectedTheme={chatState.selectedTheme}/>}
       
       {(chatState.appStatus === APP_STATUS.GENERATING_SLIDES || chatState.appStatus === APP_STATUS.SLIDE_GENERATED) &&
         <GenerationProgressTracker
@@ -901,7 +556,9 @@ export default function App() {
 
   const [apiErrorStep, setApiErrorStep] = useState(null);
   
-  const [theme, setTheme] = useState('dark');
+  const [selectedTheme, setSelectedTheme] = useState('standard');
+  const [design, setDesign] = useState('dark');
+  
   const [includeAgenda, setIncludeAgenda] = useState(false);
 
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -1051,15 +708,24 @@ export default function App() {
     setMessages(prev => [...prev, { type: 'system', text: '内容が承認されました。次に、プレゼンテーションのテーマを選択してください。' }]);
   };
 
-  const handleThemeSelection = (selectedTheme) => {
-    setTheme(selectedTheme);
+  const handleThemeSelection = (themeKey) => {
+    setSelectedTheme(themeKey);
+  };
+  
+  const handleDesignSelection = (design) => {
+    setDesign(design);
+  };
+  
+  const handleThemeApproval = () => {
     setAppStatus(APP_STATUS.CREATING_OUTLINE);
+    const themeName = THEMES[selectedTheme]?.name || '選択されたテーマ';
+    const designName = design === 'dark' ? 'ダーク' : 'ライト';
     setMessages(prev => [
       ...prev,
-      { type: 'user', text: `${selectedTheme === 'dark' ? 'ダーク' : 'ライト'}テーマを選択` },
+      { type: 'user', text: `${themeName}テーマ (${designName}) を選択` },
       { type: 'system', text: 'テーマを承知しました。次に、アジェンダページを挿入しますか？' }
     ]);
-  };
+  }
 
   const handleAgendaChoice = (choice) => {
     setIncludeAgenda(choice);
@@ -1145,11 +811,11 @@ export default function App() {
       setThinkingState('analyzing');
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      const template = SLIDE_TEMPLATES[currentSlide.template];
-      if (!template) throw new Error(`テンプレート「${currentSlide.template}」が見つかりません。`);
+      const template = THEMES[selectedTheme].templates[currentSlide.template];
+      if (!template) throw new Error(`テンプレート「${currentSlide.template}」がテーマ「${selectedTheme}」に見つかりません。`);
 
       const replacements = {
-        '{theme_class}': `theme-${theme}`,
+        '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
         '{title}': currentSlide.title || '',
         '{summary}': currentSlide.summary || '',
         '{content}': currentSlide.summary || '',
@@ -1355,7 +1021,9 @@ export default function App() {
         <ChatPanel chatState={{
             messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus,
             apiErrorStep, handleRetry,
-            structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, handleThemeSelection, handleAgendaChoice, handleSectionHeaderChoice,
+            structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, 
+            selectedTheme, design, handleThemeSelection, handleDesignSelection, handleThemeApproval, // 修正箇所
+            handleAgendaChoice, handleSectionHeaderChoice,
             slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration,
             currentSlideIndex, thinkingState,
             handlePreview, handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
