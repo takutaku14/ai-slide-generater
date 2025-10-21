@@ -188,6 +188,43 @@ ${modificationRequest}
 ${currentSlideHtml}
 \`\`\`
 `
+,
+regenerateSlideContent: (slideTitle, originalDataJson, newTemplateName, availableTemplates) => {
+    // 元データが空（{}）でないか確認
+    const originalDataPrompt = (originalDataJson !== '{}' && originalDataJson)
+      ? `### 元のスライド情報（JSON）
+${originalDataJson}`
+      : `### 元のスライド情報
+元データはありません。タイトル「${slideTitle}」に基づいて内容を生成してください。`;
+
+    return `### 指示
+あなたはプロのプレゼンテーション構成作家です。
+以下の「元のスライド情報」と「スライドタイトル」を分析し、「新しいテンプレート」の形式に最適なコンテンツを生成してください。
+
+### スライドタイトル
+${slideTitle}
+
+${originalDataPrompt}
+
+### 新しいテンプレート
+${newTemplateName}
+
+### 利用可能なテンプレートと必要なJSONキー
+${availableTemplates.map(t => `- **${t.name}**: ${t.description}`).join('\n')}
+
+### 厳格な出力条件
+- **最重要**: 出力は、新しいテンプレート（${newTemplateName}）に必要なキー（例: \`items\`, \`points\`, \`columns\`, \`summary\`）のみを含むJSONオブジェクトの文字列としてください。
+- 前後に\`\`\`jsonや説明文は絶対に含めないでください。
+- 元の情報を活用し、新しいテンプレート形式で最も伝わりやすい内容を生成してください。
+
+### 出力例
+- ${newTemplateName} が "content_basic" の場合: \`{ "items": ["項目1", "項目2", "項目3"] }\`
+- ${newTemplateName} が "three_points" の場合: \`{ "points": [ { "title": "...", "summary": "...", "icon_description": "..." }, ... ] }\`
+- ${newTemplateName} が "comparison" の場合: \`{ "columns": [ { "title": "A案", "items": [...] }, { "title": "B案", "items": [...] } ] }\`
+- ${newTemplateName} が "content_with_diagram" の場合: \`{ "summary": "ここにスライドの本文が入ります...", "infographic": { "needed": true, "description": "..." } }\`
+`;
+  }
+
 };
 
 
@@ -316,8 +353,7 @@ const SectionHeaderSelector = ({ onSelect }) => (
   </div>
 );
 
-const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme }) => {
-  const handlePointChange = (slideIndex, pointIndex, field, value) => {
+const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme, onRegenerate, onRegenerateContent }) => {    const handlePointChange = (slideIndex, pointIndex, field, value) => {
     const newOutline = [...outline];
     const newPoints = [...(newOutline[slideIndex].points || [])];
     newPoints[pointIndex] = { ...newPoints[pointIndex], [field]: value };
@@ -372,11 +408,24 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-400 mb-2 block">レイアウトテンプレート</label>
-                <select value={slide.template || ''} onChange={(e) => onChange(index, 'template', e.target.value)} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  {availableTemplates.map(templateName => (
-                    <option key={templateName} value={templateName}>{templateName}</option>
-                  ))}
-                </select>
+                <div className="flex items-center space-x-2">
+                  <select 
+                    value={slide.template || ''} 
+                    onChange={(e) => onChange(index, 'template', e.target.value)} 
+                    className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {availableTemplates.map(templateName => (
+                      <option key={templateName} value={templateName}>{templateName}</option>
+                    ))}
+                  </select>
+                  <button 
+                    onClick={() => onRegenerateContent(index)}
+                    title="現在のスライド情報（タイトルなど）を基に、選択中のテンプレートに合わせてAIで内容を再生成します。"
+                    className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors flex-shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -466,9 +515,22 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
           </div>
         ))}
       </div>
-      <div className="flex justify-center pt-2">
-        <button onClick={onStart} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors" disabled={outline.length === 0}>構成案を承認し、スライド生成を開始する</button>
+      <div className="flex justify-center pt-2 space-x-4">
+        <button 
+          onClick={onRegenerate} 
+          className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-sm font-medium rounded-md transition-colors"
+        >
+          構成案を再生成
+        </button>
+        <button 
+          onClick={onStart} 
+          className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors" 
+          disabled={outline.length === 0}
+        >
+          構成案を承認し、スライド生成を開始する
+        </button>
       </div>
+      
     </div>
   );
 };
@@ -555,8 +617,16 @@ const ChatPanel = ({ chatState }) => (
         onApprove={chatState.handleThemeApproval} />}
       {chatState.appStatus === APP_STATUS.CREATING_OUTLINE && <AgendaSelector onSelect={chatState.handleAgendaChoice} />}
       {chatState.appStatus === APP_STATUS.SELECTING_SECTION_HEADERS && <SectionHeaderSelector onSelect={chatState.handleSectionHeaderChoice} />}
-      {chatState.appStatus === APP_STATUS.OUTLINE_CREATED && <OutlineEditor outline={chatState.slideOutline} onChange={chatState.handleOutlineChange} onInsert={chatState.handleInsertSlide} onDelete={chatState.handleDeleteSlide} onStart={chatState.handleStartGeneration} selectedTheme={chatState.selectedTheme}/>}
-      
+      {chatState.appStatus === APP_STATUS.OUTLINE_CREATED && <OutlineEditor 
+        outline={chatState.slideOutline} 
+        onChange={chatState.handleOutlineChange} 
+        onInsert={chatState.handleInsertSlide} 
+        onDelete={chatState.handleDeleteSlide} 
+        onStart={chatState.handleStartGeneration} 
+        selectedTheme={chatState.selectedTheme}
+        onRegenerate={chatState.handleRegenerateOutline} 
+        onRegenerateContent={chatState.handleRegenerateSlideContent}
+      />}      
       {(chatState.appStatus === APP_STATUS.GENERATING_SLIDES || chatState.appStatus === APP_STATUS.SLIDE_GENERATED) &&
         <GenerationProgressTracker
           outline={chatState.slideOutline}
@@ -873,6 +943,101 @@ export default function App() {
     setSlideOutline(newOutline);
   };
 
+  const handleRegenerateOutline = () => {
+    if (window.confirm('現在の構成案を破棄し、最初から再生成します。よろしいですか？')) {
+      setMessages(prev => [...prev, { type: 'system', text: '構成案の再生成をリクエストしました。' }]);
+      
+      // メッセージ履歴からセクションヘッダーの最後の選択を取得
+      const lastChoiceText = messages.slice().reverse().find(m => m.type === 'user' && m.text.includes('セクションヘッダー:'))?.text;
+      const useSectionHeaders = lastChoiceText ? lastChoiceText.includes('はい') : false; // 見つからなければデフォルトで 'いいえ'
+      
+      // 構成案生成のトリガーとなる関数を再度呼び出す
+      handleSectionHeaderChoice(useSectionHeaders);
+    }
+  };
+
+  const handleRegenerateSlideContent = async (slideIndex) => {
+    setIsProcessing(true);
+    setProcessingStatus('スライド内容を再生成中...');
+    
+    const targetSlide = slideOutline[slideIndex];
+    const { title, template: newTemplateName } = targetSlide;
+
+    // 元データを準備（title, template, infographic 以外）
+    const originalData = { ...targetSlide };
+    delete originalData.title;
+    delete originalData.template;
+    // infographic はAIに再生成させるため、元データからは除外（ただし content_with_diagram の場合は description を活かす）
+    if (newTemplateName !== 'content_with_diagram') {
+         delete originalData.infographic;
+    }
+
+    // 利用可能なテンプレートの情報をAIに渡す
+    const availableTemplates = [
+      { name: 'content_basic', description: '`items` (文字列配列) が必要。`summary`は空にする。' },
+      { name: 'three_points', description: '`points` (3要素のオブジェクト配列) が必要。`summary`は空にする。' },
+      { name: 'vertical_steps', description: '`items` (オブジェクト配列) が必要。`summary`は空にする。' },
+      { name: 'comparison', description: '`columns` (2要素のオブジェクト配列) が必要。`summary`は空にする。' },
+      { name: 'content_with_diagram', description: '`summary` (本文) が必要。必要なら `infographic` も生成。' },
+      { name: 'agenda', description: '`summary` (改行区切りのリスト) が必要。' },
+      { name: 'title_slide', description: '`summary` (サブタイトル) が必要。' },
+      { name: 'section_header', description: 'コンテンツ不要。`summary`は空にする。' },
+      { name: 'summary_or_thankyou', description: '`summary` (補足) が必要。' },
+    ];
+    
+    const prompt = PROMPTS.regenerateSlideContent(
+      title,
+      Object.keys(originalData).length > 0 ? JSON.stringify(originalData) : '{}',
+      newTemplateName,
+      availableTemplates
+    );
+
+    const result = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', `スライド${slideIndex + 1}内容再生成`);
+    
+    if (result && !result.error) {
+      try {
+        const newContent = JSON.parse(result);
+        
+        // 新しい内容でスライドを更新
+        setSlideOutline(prevOutline => {
+          const newOutline = [...prevOutline];
+          const updatedSlide = { ...newOutline[slideIndex] };
+
+          // 1. 他のテンプレートの主要データをリセット
+          if (newTemplateName !== 'content_basic') updatedSlide.items = null;
+          if (newTemplateName !== 'three_points') updatedSlide.points = null;
+          if (newTemplateName !== 'comparison') updatedSlide.columns = null;
+          
+          // 2. AIが生成した新しいデータをマージ
+          Object.assign(updatedSlide, newContent);
+
+          // 3. テンプレートのルールに基づき、不要なデータを最終クリーンアップ
+          if (['content_basic', 'three_points', 'comparison', 'vertical_steps', 'section_header'].includes(newTemplateName)) {
+            updatedSlide.summary = ""; // これらのテンプレートは summary を持たない
+          }
+          if (newTemplateName !== 'content_with_diagram') {
+             // content_with_diagram 以外は infographic をリセット（AIが生成した場合を除く）
+             if (!newContent.infographic) {
+                updatedSlide.infographic = null;
+             }
+          }
+
+          newOutline[slideIndex] = updatedSlide;
+          return newOutline;
+        });
+
+        setMessages(prev => [...prev, { type: 'system', text: `スライド ${slideIndex + 1} の内容を ${newTemplateName} 形式で再生成しました。` }]);
+        
+      } catch (error) {
+        setMessages(prev => [...prev, { type: 'system', text: `内容の解析に失敗しました: ${error.message}` }]);
+      }
+    } else {
+      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '内容の再生成中にエラーが発生しました。' }]);
+    }
+    
+    setIsProcessing(false);
+  };
+
   const handleStartGeneration = () => {
     if (slideOutline.length === 0) return;
     setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text: `構成案承認済。\n**ステップ2: スライド生成**\n全${slideOutline.length}枚のスライド生成を開始します。` }]);
@@ -1119,7 +1284,8 @@ export default function App() {
             structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, 
             selectedTheme, design, handleThemeSelection, handleDesignSelection, handleThemeApproval, // 修正箇所
             handleAgendaChoice, handleSectionHeaderChoice,
-            slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration,
+
+            slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent,
             currentSlideIndex, thinkingState,
             handlePreview, handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
         }} />
