@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import JSZip from 'jszip';
-import { THEMES } from './templates'; // ★★★ この行を追加 ★★★
+import { THEMES } from './templates'; 
+import { marked } from 'marked'; 
 
 // pdf.js のワーカーを設定
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -225,6 +226,40 @@ ${availableTemplates.map(t => `- **${t.name}**: ${t.description}`).join('\n')}
 `;
   }
 
+  ,
+
+  modifyFullOutline: (currentOutlineJson, instruction) => `### 指示
+あなたはプロのプレゼンテーション構成作家です。
+添付された「現在の構成案(JSON)」を、以下の「ユーザーからの修正指示」に基づき、厳密に修正してください。
+
+### 厳格なルール
+- **最重要:** 出力は、修正後の**完全なJSON配列の文字列のみ**としてください。前後に\`\`\`jsonや説明文は絶対に含めないでください。
+- 指示された箇所以外は、**絶対に、いかなる理由があっても変更しないでください。**
+- スライドの順序変更、追加、削除、内容の書き換えなど、指示を忠実に実行してください。
+
+### ユーザーからの修正指示
+${instruction}
+
+### 現在の構成案(JSON)
+${currentOutlineJson}
+`,
+
+  modifySingleSlideOutline: (currentSlideJson, instruction) => `### 指示
+あなたはプロのプレゼンテーション構成作家です。
+添付された「現在のスライド(JSON)」を、以下の「ユーザーからの修正指示」に基づき、厳密に修正してください。
+
+### 厳格なルール
+- **最重要:** 出力は、修正後の**単一のJSONオブジェクトの文字列のみ**としてください。前後に\`\`\`jsonや説明文は絶対に含めないでください。
+- 指示された箇所以外（例：指示がないのに \`template\` を変えるなど）は、**絶対に、いかなる理由があっても変更しないでください。**
+- スライドのタイトル、要約（summary）、箇条書き（items）など、指示された部分のみを修正してください。
+
+### ユーザーからの修正指示
+${instruction}
+
+### 現在のスライド(JSON)
+${currentSlideJson}
+`
+
 };
 
 
@@ -353,7 +388,8 @@ const SectionHeaderSelector = ({ onSelect }) => (
   </div>
 );
 
-const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme, onRegenerate, onRegenerateContent }) => {    const handlePointChange = (slideIndex, pointIndex, field, value) => {
+const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme, onRegenerate, onRegenerateContent, onModifySlide, onModifyAll }) => {
+  const handlePointChange = (slideIndex, pointIndex, field, value) => {
     const newOutline = [...outline];
     const newPoints = [...(newOutline[slideIndex].points || [])];
     newPoints[pointIndex] = { ...newPoints[pointIndex], [field]: value };
@@ -367,7 +403,6 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
     onChange(slideIndex, 'items', newItems);
   };
 
-  // ★★★ ここからが修正点 (comparison テンプレート対応) ★★★
   const handleColumnChange = (slideIndex, colIndex, field, value) => {
     const newOutline = [...outline];
     const newColumns = [...(newOutline[slideIndex].columns || [{}, {}])];
@@ -391,7 +426,6 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
     newColumns[colIndex] = { ...newColumns[colIndex], items: newItems };
     onChange(slideIndex, 'columns', newColumns);
   };
-  // ★★★ ここまでが修正点 ★★★
 
   const availableTemplates = THEMES[selectedTheme]?.templates ? Object.keys(THEMES[selectedTheme].templates) : [];
 
@@ -429,7 +463,7 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
               </div>
             </div>
 
-            {/* ★★★ 'two_points', 'four_points' を削除し、'three_points' のみに ★★★ */}
+            {/* --- 各テンプレートの編集UI --- */}
             {['three_points'].includes(slide.template) ? (
               <div className="space-y-3 mt-3">
                 {slide.points?.map((point, pointIndex) => (
@@ -443,11 +477,9 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                   </div>
                 ))}
               </div>
-            // ★★★ 'icon_list' を削除し、'content_basic' を追加 ★★★
             ) : ['vertical_steps', 'content_basic'].includes(slide.template) ? (
               <div className="space-y-3 mt-3">
                 {slide.template === 'content_basic' ? (
-                  // ★★★ content_basic 用のUI (文字列配列) ★★★
                   <div>
                     <label className="text-xs font-bold text-gray-400 mb-2 block">箇条書き項目 (1行に1項目)</label>
                     <textarea 
@@ -457,7 +489,6 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                       className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
                   </div>
                 ) : (
-                  // vertical_steps 用のUI (従来のまま)
                   slide.items?.map((item, itemIndex) => (
                     <div key={itemIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
                       <label className="text-xs font-bold text-gray-400 mb-2 block">項目 {itemIndex + 1} - タイトル</label>
@@ -468,7 +499,6 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                   ))
                 )}
               </div>
-            // ★★★ ここからが修正点 (comparison テンプレート用UI) ★★★
             ) : slide.template === 'comparison' ? (
               <div className="grid grid-cols-2 gap-4 mt-3">
                 {[0, 1].map(colIndex => (
@@ -494,7 +524,6 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                   </div>
                 ))}
               </div>
-            // ★★★ ここまでが修正点 ★★★
             ) : (
               <div>
                 <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">スライド {index + 1} - 要約（またはコンテンツ）</label>
@@ -508,29 +537,46 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
               </div>
             )}
 
-            <div className="flex justify-end space-x-2 mt-3">
+            {/* --- スライド個別操作ボタン --- */}
+            <div className="flex justify-end space-x-2 mt-3 pt-2 border-t border-white/10">
+              <button 
+                onClick={() => onModifySlide(index)}
+                title="このスライドについてAIに修正指示を出す"
+                className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-xs font-medium rounded-md transition-colors"
+              >
+                AIで修正
+              </button>
               <button onClick={() => onInsert(index)} className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-xs font-medium rounded-md transition-colors">この下にスライドを挿入</button>
               <button onClick={() => onDelete(index)} className="px-3 py-1 bg-red-700 hover:bg-red-600 text-xs font-medium rounded-md transition-colors disabled:opacity-50" disabled={outline.length <= 1}>このスライドを削除</button>
             </div>
           </div>
         ))}
       </div>
-      <div className="flex justify-center pt-2 space-x-4">
-        <button 
-          onClick={onRegenerate} 
-          className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-sm font-medium rounded-md transition-colors"
-        >
-          構成案を再生成
-        </button>
-        <button 
-          onClick={onStart} 
-          className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors" 
-          disabled={outline.length === 0}
-        >
-          構成案を承認し、スライド生成を開始する
-        </button>
-      </div>
       
+      {/* --- 全体操作ボタン --- */}
+      <div className="flex flex-col items-center pt-2 space-y-3">
+        <button 
+            onClick={onModifyAll}
+            className="w-full max-w-md px-6 py-2 bg-indigo-700 hover:bg-indigo-600 text-sm font-medium rounded-md transition-colors"
+          >
+            構成案全体をAIで修正...
+        </button>
+        <div className="flex justify-center space-x-4">
+          <button 
+            onClick={onRegenerate} 
+            className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-sm font-medium rounded-md transition-colors"
+          >
+            構成案を再生成
+          </button>
+          <button 
+            onClick={onStart} 
+            className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors" 
+            disabled={outline.length === 0}
+          >
+            構成案を承認し、スライド生成を開始する
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -617,6 +663,7 @@ const ChatPanel = ({ chatState }) => (
         onApprove={chatState.handleThemeApproval} />}
       {chatState.appStatus === APP_STATUS.CREATING_OUTLINE && <AgendaSelector onSelect={chatState.handleAgendaChoice} />}
       {chatState.appStatus === APP_STATUS.SELECTING_SECTION_HEADERS && <SectionHeaderSelector onSelect={chatState.handleSectionHeaderChoice} />}
+      
       {chatState.appStatus === APP_STATUS.OUTLINE_CREATED && <OutlineEditor 
         outline={chatState.slideOutline} 
         onChange={chatState.handleOutlineChange} 
@@ -626,7 +673,10 @@ const ChatPanel = ({ chatState }) => (
         selectedTheme={chatState.selectedTheme}
         onRegenerate={chatState.handleRegenerateOutline} 
         onRegenerateContent={chatState.handleRegenerateSlideContent}
-      />}      
+        onModifySlide={chatState.handleOpenModifyModal}
+        onModifyAll={chatState.handleOpenModifyAllModal}
+      />}
+
       {(chatState.appStatus === APP_STATUS.GENERATING_SLIDES || chatState.appStatus === APP_STATUS.SLIDE_GENERATED) &&
         <GenerationProgressTracker
           outline={chatState.slideOutline}
@@ -684,6 +734,37 @@ const CodeEditorModal = ({ isOpen, html, setHtml, onSave, onCancel }) => {
   );
 };
 
+const OutlineModifyModal = ({ isOpen, mode, index, value, onChange, onSave, onCancel }) => {
+  if (!isOpen) return null;
+
+  const title = mode === 'all'
+    ? '構成案全体をAIで修正'
+    : `スライド ${index + 1} をAIで修正`;
+
+  const description = mode === 'all'
+    ? '構成案全体（全スライドの順序、タイトル、内容）に対する修正指示を具体的に入力してください。'
+    : `このスライド（${index + 1}）に対する修正指示（例：「タイトルを～にして」「箇条書きを3つに要約して」）を入力してください。`;
+
+  return (
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-[#2a2a2e] border border-white/10 rounded-lg shadow-xl p-6 w-full max-w-2xl flex flex-col">
+        <h2 className="text-xl font-bold mb-4 flex-shrink-0">{title}</h2>
+        <p className="text-sm text-gray-400 mb-4">{description}</p>
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full h-40 bg-gray-900/50 border border-white/20 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow font-mono"
+          placeholder="修正指示を入力..."
+        />
+        <div className="flex justify-end mt-4 flex-shrink-0 space-x-2">
+          <button onClick={onCancel} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-md font-medium transition-colors">キャンセル</button>
+          <button onClick={onSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md font-medium transition-colors">修正を実行</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 /**
  * アプリケーションのメインコンポーネント。
@@ -718,6 +799,10 @@ export default function App() {
 
   const [isCodeEditorOpen, setIsCodeEditorOpen] = useState(false);
   const [editableHtml, setEditableHtml] = useState('');
+
+  const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
+  const [modificationInput, setModificationInput] = useState('');
+  const [modifyModalTarget, setModifyModalTarget] = useState({ index: null, mode: 'single' });
 
   const [thinkingState, setThinkingState] = useState(null);
 
@@ -1038,6 +1123,70 @@ export default function App() {
     setIsProcessing(false);
   };
 
+  const handleOpenModifyModal = (index) => {
+    setModifyModalTarget({ index: index, mode: 'single' });
+    setModificationInput('');
+    setIsModifyModalOpen(true);
+  };
+
+  const handleOpenModifyAllModal = () => {
+    setModifyModalTarget({ index: null, mode: 'all' });
+    setModificationInput('');
+    setIsModifyModalOpen(true);
+  };
+
+  const handleCloseModifyModal = () => {
+    setIsModifyModalOpen(false);
+    setModificationInput('');
+  };
+
+  const handleSubmitModification = async () => {
+    const { index, mode } = modifyModalTarget;
+
+    if (!modificationInput.trim()) {
+      handleCloseModifyModal();
+      return;
+    }
+
+    setIsProcessing(true);
+    setApiErrorStep(null);
+    let resultJson = null;
+
+    if (mode === 'all') {
+      setProcessingStatus('構成案全体を修正中...');
+      const prompt = PROMPTS.modifyFullOutline(JSON.stringify(slideOutline, null, 2), modificationInput);
+      resultJson = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案全体修正');
+    } else if (mode === 'single' && index !== null) {
+      setProcessingStatus(`スライド ${index + 1} を修正中...`);
+      const prompt = PROMPTS.modifySingleSlideOutline(JSON.stringify(slideOutline[index], null, 2), modificationInput);
+      resultJson = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', `スライド${index + 1}修正`);
+    }
+
+    if (resultJson && !resultJson.error) {
+      try {
+        const parsedResult = JSON.parse(resultJson);
+        if (mode === 'all') {
+          setSlideOutline(parsedResult);
+          setMessages(prev => [...prev, { type: 'system', text: '構成案全体を修正しました。' }]);
+        } else if (mode === 'single' && index !== null) {
+          setSlideOutline(prevOutline => {
+            const newOutline = [...prevOutline];
+            newOutline[index] = parsedResult;
+            return newOutline;
+          });
+          setMessages(prev => [...prev, { type: 'system', text: `スライド ${index + 1} を修正しました。` }]);
+        }
+      } catch (error) {
+        setMessages(prev => [...prev, { type: 'system', text: `修正結果の解析に失敗しました: ${error.message}` }]);
+      }
+    } else {
+      setMessages(prev => [...prev, { type: 'system', text: resultJson ? resultJson.error : '修正中にエラーが発生しました。' }]);
+    }
+    
+    setIsProcessing(false);
+    handleCloseModifyModal();
+  };
+
   const handleStartGeneration = () => {
     if (slideOutline.length === 0) return;
     setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text: `構成案承認済。\n**ステップ2: スライド生成**\n全${slideOutline.length}枚のスライド生成を開始します。` }]);
@@ -1060,11 +1209,14 @@ export default function App() {
       const template = THEMES[selectedTheme].templates[currentSlide.template];
       if (!template) throw new Error(`テンプレート「${currentSlide.template}」がテーマ「${selectedTheme}」に見つかりません。`);
 
+      // ★修正: summary や content を marked でパース
       const replacements = {
         '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
         '{title}': currentSlide.title || '',
-        '{summary}': currentSlide.summary || '',
-        '{content}': currentSlide.summary || '',
+        // summary はインライン要素として解釈
+        '{summary}': marked.parseInline(currentSlide.summary || ''), 
+        // content (content_with_diagram用) はブロック要素(段落など)として解釈
+        '{content}': marked.parse(currentSlide.summary || ''), 
         '{infographic_svg}': '',
         '{agenda_items_html}': '',
         '{items_html}': '',
@@ -1080,7 +1232,6 @@ export default function App() {
         replacements['{infographic_svg}'] = infographicSvg;
       }
       
-      // ★★★ 'two_points', 'four_points' を削除し、'three_points' のみに ★★★
       if (['three_points'].includes(currentSlide.template) && Array.isArray(currentSlide.points)) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
@@ -1093,7 +1244,8 @@ export default function App() {
         
         currentSlide.points.forEach((point, i) => {
             replacements[`{point_${i + 1}_title}`] = point.title || '';
-            replacements[`{point_${i + 1}_summary}`] = point.summary || '';
+            // ★修正: point.summary を parseInline で変換
+            replacements[`{point_${i + 1}_summary}`] = marked.parseInline(point.summary || '');
             replacements[`{icon_${i + 1}_svg}`] = iconSvgs[i] || ``;
         });
       }
@@ -1101,53 +1253,51 @@ export default function App() {
       
 
       if (currentSlide.template === 'agenda') {
-        // ★★★ 修正点 ★★★
-        // .replace() を追加し、各項目の先頭にある "1. " 形式の番号を強制的に削除
+        // ★修正: <li> の中身を parseInline で変換
         const agendaItems = currentSlide.summary.split('\n').map(item => {
           const cleanItem = item.replace(/^\s*\d+\.\s*/, '');
-          return `<li>${cleanItem}</li>`;
+          return `<li>${marked.parseInline(cleanItem || '')}</li>`;
         }).join('');
-        // ★★★ ここまで ★★★
         replacements['{agenda_items_html}'] = agendaItems;
       }
       
-      // ★★★ 'icon_list' を削除し、'content_basic' を追加 ★★★
       if (['vertical_steps', 'content_basic'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
         let itemsHtml = '';
         if(currentSlide.template === 'vertical_steps') {
+          // ★修正: item.description を parseInline で変換
           itemsHtml = currentSlide.items.map((item, i) => `
             <div class="step">
               <div class="step-marker">${i + 1}</div>
               <h2>${item.title || ''}</h2>
-              <p>${item.description || ''}</p>
+              <p>${marked.parseInline(item.description || '')}</p>
             </div>
           `).join('');
-        // ★★★ 'content_basic' 用のロジック (文字列配列から <li> を生成) ★★★
         } else if (currentSlide.template === 'content_basic') {
-          itemsHtml = currentSlide.items.map(item => `<li>${item || ''}</li>`).join('');
+          // ★修正: item を parseInline で変換
+          itemsHtml = currentSlide.items.map(item => `<li>${marked.parseInline(item || '')}</li>`).join('');
         }
         replacements['{items_html}'] = itemsHtml;
       }
 
-      // ★★★ ここからが修正点 (comparison テンプレート用ロジック) ★★★
       if (currentSlide.template === 'comparison' && Array.isArray(currentSlide.columns)) {
         if (currentSlide.columns[0]) {
           replacements['{col_1_title}'] = currentSlide.columns[0].title || '';
+          // ★修正: item を parseInline で変換
           replacements['{col_1_items_html}'] = Array.isArray(currentSlide.columns[0].items)
-            ? currentSlide.columns[0].items.map(item => `<li>${item || ''}</li>`).join('')
+            ? currentSlide.columns[0].items.map(item => `<li>${marked.parseInline(item || '')}</li>`).join('')
             : '';
         }
         if (currentSlide.columns[1]) {
           replacements['{col_2_title}'] = currentSlide.columns[1].title || '';
+          // ★修正: item を parseInline で変換
           replacements['{col_2_items_html}'] = Array.isArray(currentSlide.columns[1].items)
-            ? currentSlide.columns[1].items.map(item => `<li>${item || ''}</li>`).join('')
+            ? currentSlide.columns[1].items.map(item => `<li>${marked.parseInline(item || '')}</li>`).join('')
             : '';
         }
       }
-      // ★★★ ここまでが修正点 ★★★
 
       setThinkingState('coding');
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -1170,7 +1320,7 @@ export default function App() {
         setAppStatus(APP_STATUS.SLIDE_GENERATED);
     }
   };
-
+  
   const modifySlide = async (modificationRequest) => {
     setIsProcessing(true);
     setProcessingStatus(`スライド ${currentSlideIndex + 1} を修正中...`);
@@ -1285,8 +1435,7 @@ export default function App() {
             selectedTheme, design, handleThemeSelection, handleDesignSelection, handleThemeApproval, // 修正箇所
             handleAgendaChoice, handleSectionHeaderChoice,
 
-            slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent,
-            currentSlideIndex, thinkingState,
+            slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent, handleOpenModifyModal, handleOpenModifyAllModal,            currentSlideIndex, thinkingState,
             handlePreview, handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
         }} />
       </main>
@@ -1298,6 +1447,16 @@ export default function App() {
         setHtml={setEditableHtml}
         onSave={handleApplyCodeChanges}
         onCancel={handleCancelCodeEdit}
+      />
+
+      <OutlineModifyModal
+        isOpen={isModifyModalOpen}
+        mode={modifyModalTarget.mode}
+        index={modifyModalTarget.index}
+        value={modificationInput}
+        onChange={setModificationInput}
+        onSave={handleSubmitModification}
+        onCancel={handleCloseModifyModal}
       />
     </div>
   );
