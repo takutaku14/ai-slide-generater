@@ -7,7 +7,7 @@
  * フォント: Noto Sans JP
  * レイアウト: 左揃え基調、十分な余白、図解の活用を意識
  */
-export const standardTemplates = {
+export const businessFriendlyTemplates = {
   // 1. 表紙
   title_slide: `
 <!DOCTYPE html>
@@ -174,20 +174,8 @@ export const standardTemplates = {
         .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
         .slide-body { display: grid; grid-template-columns: 40% 60%; gap: 40px; flex-grow: 1; align-items: center; }
-        .content { 
-                    font-size: 22px; line-height: 1.8; color: var(--sub-text-color); white-space: pre-wrap; font-weight: 400; 
-                    /* ▼▼▼ 本文を上下中央に配置するために以下を追加 ▼▼▼ */
-                    display: flex; 
-                    flex-direction: column; 
-                    justify-content: center; 
-                }
+        .content { font-size: 22px; line-height: 1.8; color: var(--sub-text-color); white-space: pre-wrap; font-weight: 400; }
         #infographic-slot { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
-
-        /* ▼▼▼ SVGがはみ出さないように、この4行を追加 ▼▼▼ */
-        #infographic-slot svg {
-            max-width: 100%;
-            max-height: 100%;
-        }
     </style>
 </head>
 <body class="{theme_class}">

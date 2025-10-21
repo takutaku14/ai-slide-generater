@@ -48,30 +48,42 @@ ${text}`,
 あなたはプロのプレゼンテーション構成作家です。以下のMarkdownテキストを分析し、最も効果的なプレゼンテーションの構成案をJSON形式で作成してください。
 
 ### 利用可能なテンプレート
-- \`title_slide\`, \`agenda\`, \`section_header\`, \`quote\`
-- \`content_left_infographic_right\`: 文章と図解。
-- \`two_points\`, \`three_points\`, \`four_points\`: 2〜4つの要点を横並びで表示。
-- \`vertical_steps\`: **番号付き箇条書き**など、順序のあるリスト用。
-- \`icon_list\`: **点付き箇条書き**など、順序のないリスト用。
+- \`title_slide\`: 表紙
+- \`agenda\`: 目次
+- \`section_header\`: 章の区切り
+- \`content_basic\`: **箇条書き**（番号なし・あり両方）のための最も標準的なテンプレート。
+- \`content_with_diagram\`: 文章と図解（インフォグラフィック）。
+- \`three_points\`: 3つの要点を横並びで表示。
+- \`vertical_steps\`: 時系列やステップ。
+- \`comparison\`: **2つの項目（メリット/デメリット、A案/B案など）を比較・対比**するための専用テンプレート。
+- \`summary_or_thankyou\`: 最後のまとめ、または「ご聴取ありがとうございました」用。
 
 ### 条件
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
 - **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（- や 1.）を使用してください。
-- テキストの内容が2〜4つの項目を**比較・対比**している場合、または**並列に紹介**している場合は、\`icon_list\`や\`vertical_steps\`よりも\`two_points\`、\`three_points\`、\`four_points\`の使用を優先してください。
-- **箇条書きが中心のスライド**を作成する場合、以下のテンプレートを優先的に使用してください。
-  - **番号付きリスト**には \`vertical_steps\` を選択します。
-  - **点付きリスト**には \`icon_list\` を選択します。
-- \`vertical_steps\` または \`icon_list\` を選択した場合、\`summary\`は空にし、代わりに\`items\`というキーで要素の配列を生成してください。
-  - \`icon_list\` の場合、各要素は\`{ "title": "...", "description": "...", "icon_description": "..." }\`の形式です。
-  - \`vertical_steps\` の場合、各要素は\`{ "title": "...", "description": "..." }\`の形式です（アイコン不要）。
-// ★★★ ここからが修正点 ★★★
-  - **重要ルール**: \`items\` 配列内の各項目の \`description\` は、スライドのレイアウトが崩れないよう、**非常に簡潔な要約（最大50文字程度）** にしてください。
-// ★★★ ここまでが修正点 ★★★
-- \`two_points\`、\`three_points\`、\`four_points\`のテンプレートを使う場合、\`summary\`は空にし、代わりに\`points\`というキーで要素の配列を生成してください。
-  - \`points\` 配列の各要素は、必ず \`{ "title": "...", "summary": "...", "icon_description": "..." }\` の形式にしてください。
-- \`content_left_infographic_right\` テンプレートを選択した場合、**スライドの本文を必ず \`summary\` キーに記述**してください。インフォグラフィックが必要な場合は、\`infographic\` オブジェクトを別途生成してください。
+
+- **箇条書き（番号付き/なし）が中心のスライド**を作成する場合は、\`content_basic\` テンプレートを最優先で使用してください。
+  - \`content_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`items\`キー** で「箇条書きの各項目（文字列）」の配列を生成してください。
+  - 例: \`"title": "主な特長", "summary": "", "template": "content_basic", "items": ["高速処理", "高い安全性", "簡単な操作性"]\`
+
+- **2つの項目を比較・対比**している場合は、\`comparison\` テンプレートを最優先で使用してください。
+  - \`comparison\` を選択した場合、\`summary\`は空にし、代わりに\`columns\`というキーで2要素の配列を生成してください。
+  - 各要素は \`{ "title": "(カラム1のタイトル)", "items": ["(カラム1の箇条書き1)", "(カラム1の箇条書き2)"] }\` の形式です。
+
+- 3つの項目を並列に紹介する場合は \`three_points\` の使用を優先してください。
+  - \`three_points\` の場合、\`summary\`は空にし、代わりに\`points\`というキーで3要素の配列を生成してください。
+  - 各要素は \`{ "title": "...", "summary": "...", "icon_description": "..." }\` の形式です。
+
+- 時系列やステップを示す場合は \`vertical_steps\` を選択してください。
+  - \`vertical_steps\` の場合、\`summary\`は空にし、代わりに\`items\`というキーで要素の配列を生成してください。
+  - 各要素は \`{ "title": "...", "description": "..." }\` の形式です。
+
+- \`content_with_diagram\` テンプレートを選択した場合、**スライドの本文を必ず \`summary\` キーに記述**してください。インフォグラフィックが必要な場合は、\`infographic\` オブジェクトを別途生成してください。
+
 ${agendaCondition}
 ${sectionHeaderCondition}
+
+- 最後のスライドは \`summary_or_thankyou\` とし、タイトルを「まとめ」または「ご清聴ありがとうございました」に設定してください。
 
 ### 出力形式(JSON)の例
 - **最重要**: 出力はJSON配列の文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
@@ -80,20 +92,20 @@ ${sectionHeaderCondition}
   {
     "title": "システムの概要",
     "summary": "このシステムは、最新のAI技術を活用して業務効率を劇的に向上させます。\\n主な特徴は以下の3点です。\\n1. 高速処理\\n2. 高い安全性\\n3. 簡単な操作性",
-    "template": "content_left_infographic_right",
+    "template": "content_with_diagram",
     "infographic": {
       "needed": true,
       "description": "中央に脳のアイコンを配置し、そこから「スピード」「セキュリティ」「使いやすさ」を示す3つのアイコンへ線が伸びている図"
     }
   },
   {
-    "title": "3つのプラン比較",
+    "title": "3つのプラン",
     "summary": "",
     "template": "three_points",
     "points": [
-      { "title": "ベーシックプラン", "summary": "個人利用に最適。基本的な機能を利用できます。", "icon_description": "一人の人物のシルエットアイコン" },
-      { "title": "プロプラン", "summary": "チームでの利用に最適。共同編集機能が強力です。", "icon_description": "複数の人物のシルエットアイコン" },
-      { "title": "エンタープライズプラン", "summary": "大規模組織向け。高度なセキュリティとサポートが含まれます。", "icon_description": "近代的なオフィスのビルアイコン" }
+      { "title": "ベーシックプラン", "summary": "個人利用に最適。", "icon_description": "一人の人物のシルエットアイコン" },
+      { "title": "プロプラン", "summary": "チームでの利用に最適。", "icon_description": "複数の人物のシルエットアイコン" },
+      { "title": "エンタープライズプラン", "summary": "大規模組織向け。", "icon_description": "近代的なオフィスのビルアイコン" }
     ]
   },
   {
@@ -109,12 +121,23 @@ ${sectionHeaderCondition}
   {
     "title": "主な特長",
     "summary": "",
-    "template": "icon_list",
+    "template": "content_basic",
     "items": [
-      { "title": "高速処理", "description": "独自のアルゴリズムによる高速化。", "icon_description": "ロケットのアイコン" },
-      { "title": "高い安全性", "description": "最新の暗号化技術を導入。", "icon_description": "盾のアイコン" }
+      "独自のアルゴリズムによる高速処理",
+      "最新の暗号化技術による高い安全性",
+      "直感的なUIによる簡単な操作性"
     ]
-  }
+  },
+  {
+    "title": "A案とB案の比較",
+    "summary": "",
+    "template": "comparison",
+    "columns": [
+      { "title": "A案 (現行)", "items": ["コストが低い", "導入が容易"] },
+      { "title": "B案 (新規)", "items": ["パフォーマンスが高い", "拡張性に優れる", "長期的なコスト削減"] }
+    ]
+  },
+  { "title": "ご清聴ありがとうございました", "summary": "", "template": "summary_or_thankyou" }
 ]
 
 ### Markdownテキスト
@@ -308,7 +331,32 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
     onChange(slideIndex, 'items', newItems);
   };
 
-  // ★★★ この行を追加 ★★★
+  // ★★★ ここからが修正点 (comparison テンプレート対応) ★★★
+  const handleColumnChange = (slideIndex, colIndex, field, value) => {
+    const newOutline = [...outline];
+    const newColumns = [...(newOutline[slideIndex].columns || [{}, {}])];
+    newColumns[colIndex] = { ...newColumns[colIndex], [field]: value };
+    onChange(slideIndex, 'columns', newColumns);
+  };
+
+  const handleColumnItemChange = (slideIndex, colIndex, itemIndex, value) => {
+    const newOutline = [...outline];
+    const newColumns = [...(newOutline[slideIndex].columns || [{}, {}])];
+    const newItems = [...(newColumns[colIndex].items || [])];
+    newItems[itemIndex] = value;
+    newColumns[colIndex] = { ...newColumns[colIndex], items: newItems };
+    onChange(slideIndex, 'columns', newColumns);
+  };
+
+  const handleAddColumnItem = (slideIndex, colIndex) => {
+    const newOutline = [...outline];
+    const newColumns = [...(newOutline[slideIndex].columns || [{}, {}])];
+    const newItems = [...(newColumns[colIndex].items || []), "新しい項目"];
+    newColumns[colIndex] = { ...newColumns[colIndex], items: newItems };
+    onChange(slideIndex, 'columns', newColumns);
+  };
+  // ★★★ ここまでが修正点 ★★★
+
   const availableTemplates = THEMES[selectedTheme]?.templates ? Object.keys(THEMES[selectedTheme].templates) : [];
 
   return (
@@ -324,7 +372,6 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-400 mb-2 block">レイアウトテンプレート</label>
-                {/* ★★★ select要素の中身を availableTemplates を使うように変更 ★★★ */}
                 <select value={slide.template || ''} onChange={(e) => onChange(index, 'template', e.target.value)} className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   {availableTemplates.map(templateName => (
                     <option key={templateName} value={templateName}>{templateName}</option>
@@ -333,7 +380,8 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
               </div>
             </div>
 
-            {['two_points', 'three_points', 'four_points'].includes(slide.template) ? (
+            {/* ★★★ 'two_points', 'four_points' を削除し、'three_points' のみに ★★★ */}
+            {['three_points'].includes(slide.template) ? (
               <div className="space-y-3 mt-3">
                 {slide.points?.map((point, pointIndex) => (
                   <div key={pointIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
@@ -341,30 +389,63 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                     <input type="text" value={point.title} onChange={(e) => handlePointChange(index, pointIndex, 'title', e.target.value)} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">ポイント {pointIndex + 1} - 内容</label>
                     <textarea value={point.summary} onChange={(e) => handlePointChange(index, pointIndex, 'summary', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
-                    {/* ★★★ ここからが修正点 ★★★ */}
                     <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">ポイント {pointIndex + 1} - アイコン指示</label>
                     <textarea value={point.icon_description} onChange={(e) => handlePointChange(index, pointIndex, 'icon_description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
-                    {/* ★★★ ここまでが修正点 ★★★ */}
                   </div>
                 ))}
               </div>
-            ) : ['vertical_steps', 'icon_list'].includes(slide.template) ? (
+            // ★★★ 'icon_list' を削除し、'content_basic' を追加 ★★★
+            ) : ['vertical_steps', 'content_basic'].includes(slide.template) ? (
               <div className="space-y-3 mt-3">
-                {slide.items?.map((item, itemIndex) => (
-                  <div key={itemIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
-                    <label className="text-xs font-bold text-gray-400 mb-2 block">項目 {itemIndex + 1} - タイトル</label>
-                    <input type="text" value={item.title} onChange={(e) => handleItemChange(index, itemIndex, 'title', e.target.value)} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">項目 {itemIndex + 1} - 説明</label>
-                    <textarea value={item.description} onChange={(e) => handleItemChange(index, itemIndex, 'description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
-                    {slide.template === 'icon_list' && (
-                      <>
-                        <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">項目 {itemIndex + 1} - アイコン指示</label>
-                        <textarea value={item.icon_description} onChange={(e) => handleItemChange(index, itemIndex, 'icon_description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
-                      </>
-                    )}
+                {slide.template === 'content_basic' ? (
+                  // ★★★ content_basic 用のUI (文字列配列) ★★★
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 mb-2 block">箇条書き項目 (1行に1項目)</label>
+                    <textarea 
+                      value={Array.isArray(slide.items) ? slide.items.join('\n') : ''} 
+                      onChange={(e) => onChange(index, 'items', e.target.value.split('\n'))} 
+                      rows={5} 
+                      className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                  </div>
+                ) : (
+                  // vertical_steps 用のUI (従来のまま)
+                  slide.items?.map((item, itemIndex) => (
+                    <div key={itemIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                      <label className="text-xs font-bold text-gray-400 mb-2 block">項目 {itemIndex + 1} - タイトル</label>
+                      <input type="text" value={item.title} onChange={(e) => handleItemChange(index, itemIndex, 'title', e.target.value)} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">項目 {itemIndex + 1} - 説明</label>
+                      <textarea value={item.description} onChange={(e) => handleItemChange(index, itemIndex, 'description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                    </div>
+                  ))
+                )}
+              </div>
+            // ★★★ ここからが修正点 (comparison テンプレート用UI) ★★★
+            ) : slide.template === 'comparison' ? (
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                {[0, 1].map(colIndex => (
+                  <div key={colIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                    <label className="text-xs font-bold text-gray-400 mb-2 block">カラム {colIndex + 1} - タイトル</label>
+                    <input 
+                      type="text" 
+                      value={slide.columns?.[colIndex]?.title || ''} 
+                      onChange={(e) => handleColumnChange(index, colIndex, 'title', e.target.value)} 
+                      className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                    />
+                    <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">カラム {colIndex + 1} - 箇条書き項目</label>
+                    {slide.columns?.[colIndex]?.items?.map((item, itemIndex) => (
+                      <input
+                        key={itemIndex}
+                        type="text"
+                        value={item}
+                        onChange={(e) => handleColumnItemChange(index, colIndex, itemIndex, e.target.value)}
+                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1"
+                      />
+                    ))}
+                    <button onClick={() => handleAddColumnItem(index, colIndex)} className="mt-2 text-xs px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded">項目を追加</button>
                   </div>
                 ))}
               </div>
+            // ★★★ ここまでが修正点 ★★★
             ) : (
               <div>
                 <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">スライド {index + 1} - 要約（またはコンテンツ）</label>
@@ -834,7 +915,8 @@ export default function App() {
         replacements['{infographic_svg}'] = infographicSvg;
       }
       
-      if (['two_points', 'three_points', 'four_points'].includes(currentSlide.template) && Array.isArray(currentSlide.points)) {
+      // ★★★ 'two_points', 'four_points' を削除し、'three_points' のみに ★★★
+      if (['three_points'].includes(currentSlide.template) && Array.isArray(currentSlide.points)) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
@@ -851,12 +933,21 @@ export default function App() {
         });
       }
 
+      
+
       if (currentSlide.template === 'agenda') {
-        const agendaItems = currentSlide.summary.split('\n').map(item => `<li>${item}</li>`).join('');
+        // ★★★ 修正点 ★★★
+        // .replace() を追加し、各項目の先頭にある "1. " 形式の番号を強制的に削除
+        const agendaItems = currentSlide.summary.split('\n').map(item => {
+          const cleanItem = item.replace(/^\s*\d+\.\s*/, '');
+          return `<li>${cleanItem}</li>`;
+        }).join('');
+        // ★★★ ここまで ★★★
         replacements['{agenda_items_html}'] = agendaItems;
       }
       
-      if (['vertical_steps', 'icon_list'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
+      // ★★★ 'icon_list' を削除し、'content_basic' を追加 ★★★
+      if (['vertical_steps', 'content_basic'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
@@ -869,25 +960,29 @@ export default function App() {
               <p>${item.description || ''}</p>
             </div>
           `).join('');
-        } else if (currentSlide.template === 'icon_list') {
-          const iconPromises = currentSlide.items.map(item => {
-            const svgPrompt = PROMPTS.generateInfographic(item.icon_description);
-            return callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `Icon SVG for ${item.title}`);
-          });
-          const iconSvgs = await Promise.all(iconPromises);
-          
-          itemsHtml = currentSlide.items.map((item, i) => `
-            <div class="list-item">
-              <div class="item-icon">${iconSvgs[i] || ''}</div>
-              <div class="item-content">
-                <h2>${item.title || ''}</h2>
-                <p>${item.description || ''}</p>
-              </div>
-            </div>
-          `).join('');
+        // ★★★ 'content_basic' 用のロジック (文字列配列から <li> を生成) ★★★
+        } else if (currentSlide.template === 'content_basic') {
+          itemsHtml = currentSlide.items.map(item => `<li>${item || ''}</li>`).join('');
         }
         replacements['{items_html}'] = itemsHtml;
       }
+
+      // ★★★ ここからが修正点 (comparison テンプレート用ロジック) ★★★
+      if (currentSlide.template === 'comparison' && Array.isArray(currentSlide.columns)) {
+        if (currentSlide.columns[0]) {
+          replacements['{col_1_title}'] = currentSlide.columns[0].title || '';
+          replacements['{col_1_items_html}'] = Array.isArray(currentSlide.columns[0].items)
+            ? currentSlide.columns[0].items.map(item => `<li>${item || ''}</li>`).join('')
+            : '';
+        }
+        if (currentSlide.columns[1]) {
+          replacements['{col_2_title}'] = currentSlide.columns[1].title || '';
+          replacements['{col_2_items_html}'] = Array.isArray(currentSlide.columns[1].items)
+            ? currentSlide.columns[1].items.map(item => `<li>${item || ''}</li>`).join('')
+            : '';
+        }
+      }
+      // ★★★ ここまでが修正点 ★★★
 
       setThinkingState('coding');
       await new Promise(resolve => setTimeout(resolve, 800));
