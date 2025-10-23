@@ -60,11 +60,72 @@ ${text}`,
 - \`table_basic\`: **表形式（テーブル）**。機能一覧、比較表、数値データなど。
 - \`summary_or_thankyou\`: 最後のまとめ、または「ご聴取ありがとうございました」用。
 
+### テンプレート選択の思考プロセスと具体例
+あなたはMarkdownの各セクションを分析する際、以下の優先順位と思考プロセスでテンプレートを厳格に選択してください。
+
+1.  **[最優先] 表形式か？**: 内容が機能一覧、数値データ、仕様比較など、明らかに表（テーブル）で表現するのが最適な場合は、必ず \`table_basic\` を選択します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### 機能比較
+        | 機能 | プランA | プランB |
+        |---|---|---|
+        | 基本機能 | 〇 | 〇 |
+        | 高度な分析 | - | 〇 |
+        \`\`\`
+    * **出力テンプレート**: \`table_basic\`
+
+2.  **[次点] 比較・対比か？**: 内容が2つの項目（例：メリット/デメリット、A案/B案、従来/新規）を明確に比較・対比している場合は、必ず \`comparison\` を選択します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### 従来システムとの比較
+        **従来システム**
+        - 課題1: コストが高い
+        - 課題2: 手動作業が多い
+        **新システム**
+        - 解決策1: 50%のコスト削減
+        - 解決策2: 自動化を実現
+        \`\`\`
+    * **出力テンプレート**: \`comparison\`
+
+3.  **[次点] 3つの要点か？**: 内容が3つの主要な特徴、ステップ、利点を並列で紹介している場合は、\`three_points\` の使用を優先します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### 3つのメリット
+        1.  **コスト削減**: ...
+        2.  **効率化**: ...
+        3.  **セキュリティ向上**: ...
+        \`\`\`
+    * **出力テンプレート**: \`three_points\`
+
+4.  **[次点] ステップか？**: 内容が時系列や手順を示している場合は、\`vertical_steps\` を選択します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### 導入プロセス
+        - ステップ1: ヒアリング
+        - ステップ2: 設計
+        - ステップ3: 開発
+        \`\`\`
+    * **出力テンプレート**: \`vertical_steps\`
+
+5.  **[次点] 図解が必要か？**: 内容が抽象的な概念や関係性（例：システム構成図、相関関係）を含み、テキストだけでは伝わりにくい場合は、\`content_with_diagram\` を選択します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### システム構成
+        本システムは、ユーザー、アプリケーションサーバー、データベースの3層構造で構成されており...
+        \`\`\`
+    * **出力テンプレート**: \`content_with_diagram\`
+
+6.  **[最終手段] 単純なリストか？**: 上記のいずれにも当てはまらない、単純な箇条書きや説明文の場合は、\`content_basic\` を選択します。
+
 ### 条件
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
+- **【文字数制限】**: スライドのタイトル（\`title\`キー）は、日本語で**27文字以内**の簡潔なものにしてください。長すぎて2行になるタイトルは避けてください。
 - **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（- や 1.）を使用してください。
 
-- **単純な箇条書き（番号付き/なし）が中心のスライド**を作成する場合は、\`content_basic\` テンプレートを最優先で使用してください。
+- **【強調ルール】**: \`summary\`, \`items\`, \`points\`, \`columns\`, \`table\` の各テキストを生成する際、**プレゼンテーションで特に重要となるキーワード、専門用語、またはキーとなる数値**は、必ずMarkdownの太字記法（\`**キーワード**\`）で囲んで積極的に強調してください。
+- **【用語解説ルール】**: もし \`用語：その解説\` のような形式で記述する場合は、必ず \`**用語**：その解説\` のように、コロン（：）の前の用語部分を太字にしてください。
+
+- **上記の専用テンプレート（table_basic, comparison, three_points など）のいずれにも当てはまらない**、単純な箇条書き（番号付き/なし）が中心のスライドを作成する場合に**のみ**、\`content_basic\` テンプレートを使用してください。
   - \`content_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`items\`キー** で「箇条書きの各項目（文字列）」の配列を生成してください。
   - **【最重要】\`items\` の各項目（文字列）の先頭には、ハイフン（-）やアスタリスク（*）、数字（1.）などのリストマーカーを**絶対に**含めないでください。（CSSで自動付与されます）
   - もし箇条書きを**ネスト（インデント）**させたい場合は、項目の先頭に**半角スペース2個**を挿入してください。（例： \`"  これが子項目です"\`）
@@ -73,12 +134,10 @@ ${text}`,
   - **【自動分割】**: もし元のデータがこのサイズに **要約しきれないほど多い場合**、無理に1枚に押し込めたり、情報を省略したりしないでください。
   - **【分割ルール】**: その場合、\`template\` が \`content_basic\` のスライドを **複数枚に分割** してください。（例：1枚目のタイトルを「**主な特長 (1/2)**」、2枚目のタイトルを「**主な特長 (2/2)**」のようにし、8行目以降の項目を2枚目に配置してください。）
 
-- **2つの項目を比較・対比**している場合は、... // ← この行は置き換えに含めないでください
-- **2つの項目を比較・対比**している場合は、\`comparison\` テンプレートを最優先で使用してください。
-  - \`comparison\` を選択した場合、\`summary\`は空にし、代わりに\`columns\`というキーで2要素の配列を生成してください。
+- **2つの項目を比較・対比**し、\`comparison\` テンプレートを使用する場合は、\`summary\`は空にし、代わりに\`columns\`というキーで2要素の配列を生成してください。
 
-- **表形式（テーブル）が最適なデータ**（例：機能比較一覧、数値データ一覧など）を表現する場合は、\`table_basic\` テンプレートを最優先で使用してください。
-  - \`table_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`table\`キー** で \`{ "headers": ["(ヘッダー1)", ...], "rows": [ ["(行1データ1)", ...], ["(行2データ1)", ...] ] }\` の形式のオブジェクトを生成してください。
+- **表形式（テーブル）が最適なデータ**（例：機能比較一覧、数値データ一覧など）を表現し、\`table_basic\` テンプレートを使用する場合は、
+  - **\`summary\`キーは絶対に空（""）**にし、代わりに **\`table\`キー** で \`{ "headers": ["(ヘッダー1)", ...], "rows": [ ["(行1データ1)", ...], ["(行2データ1)", ...] ] }\` の形式のオブジェクトを生成してください。
   - **【表の重要ルール】**: スライドの視認性を保つため、\`table_basic\` の表は **最大10行、7列程度** に収めてください。
   - もし元のデータがこのサイズに **要約しきれないほど多い場合**、無理に1枚に押し込めず、\`template\` が \`table_basic\` のスライドを **複数枚に分割** してください。
     - （例：1枚目のタイトルを「**機能比較 (1/2)**」、2枚目のタイトルを「**機能比較 (2/2)**」のようにし、表の続きを2枚目に配置してください。この際、**ヘッダー行は両方のスライドに含めてください**。）
@@ -261,7 +320,7 @@ const AppHeader = ({ onSettingsClick }) => (
 
 const FileUploadPanel = ({ isProcessing, processingStatus, fileName, handleDragOver, handleDrop, onFileSelect, appStatus }) => (
   <div
-    className={`w-1/3 bg-white/5 rounded-xl flex flex-col items-center justify-center p-6 border-2 border-dashed ${isProcessing ? 'border-indigo-500' : 'border-white/20 hover:border-indigo-500'} transition-colors`}
+    className={`w-full h-full bg-white/5 rounded-xl flex flex-col items-center justify-center p-6 border-2 border-dashed ${isProcessing ? 'border-indigo-500' : 'border-white/20 hover:border-indigo-500'} transition-colors`}
     onDragOver={handleDragOver}
     onDrop={handleDrop}
   >
@@ -613,15 +672,34 @@ const UserInput = ({ value, onChange, onSend, disabled }) => (
 
 const GenerationControls = ({ onPreview, onApprove, onEditCode, disabled }) => (
     <div className="flex justify-end mt-4 space-x-2">
-        <button className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" disabled={disabled} onClick={onPreview}>プレビュー</button>
+        <button 
+          className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50 hidden" // hiddenクラスを追加
+          disabled={disabled} 
+          onClick={onPreview}
+        >
+          プレビュー
+        </button>
         <button className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" disabled={disabled} onClick={onEditCode}>ソースコードを編集</button>
         <button className="px-4 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" disabled={disabled} onClick={onApprove}>承認して次へ</button>
     </div>
 );
 
 const GenerationProgressTracker = ({ outline, currentIndex, thinkingState }) => {
+  // 1. アクティブなスライドへの参照を作成
+  const activeSlideRef = useRef(null);
+
   const thinkingSteps = [ { key: 'analyzing', text: 'スライドの内容を分析中...' }, { key: 'designing', text: 'インフォグラフィックをデザイン中...' }, { key: 'coding', text: 'HTMLコードを組み立て中...' } ];
   const currentStepIndex = thinkingSteps.findIndex(step => step.key === thinkingState);
+
+  // 2. currentIndex が変更されたら、アクティブな項目にスクロール
+  useEffect(() => {
+    if (activeSlideRef.current) {
+      activeSlideRef.current.scrollIntoView({
+        behavior: 'smooth', // スムーズスクロール
+        block: 'nearest',    // ビューポートに収まるよう最小限のスクロール
+      });
+    }
+  }, [currentIndex]); // currentIndex が変わるたびに実行
 
   return (
     <div className="bg-black/20 p-4 rounded-lg space-y-3">
@@ -632,7 +710,12 @@ const GenerationProgressTracker = ({ outline, currentIndex, thinkingState }) => 
           const isInProgress = index === currentIndex;
 
           return (
-            <div key={index} className={`border border-white/10 rounded-lg p-3 transition-all duration-300 ${isInProgress ? 'bg-indigo-900/50' : 'bg-gray-900/50'}`}>
+            // 3. 実行中の項目 (isInProgress) に ref を動的に割り当て
+            <div 
+              key={index}
+              ref={isInProgress ? activeSlideRef : null} 
+              className={`border border-white/10 rounded-lg p-3 transition-all duration-300 ${isInProgress ? 'bg-indigo-900/50' : 'bg-gray-900/50'}`}
+            >
               <p className="font-semibold text-sm flex items-center">
                 {isDone ? <span className="text-green-400 mr-2">✅</span> : isInProgress ? <span className="animate-pulse mr-2">⏳</span> : <span className="text-gray-500 mr-2">📄</span>}
                 {index + 1}. {slide.title}
@@ -659,7 +742,7 @@ const GenerationProgressTracker = ({ outline, currentIndex, thinkingState }) => 
 };
 
 const ChatPanel = ({ chatState }) => (
-  <div className="w-2/3 bg-white/5 rounded-xl flex flex-col border border-white/10 overflow-hidden">
+  <div className="w-full h-full bg-white/5 rounded-xl flex flex-col border border-white/10 overflow-hidden">
     <div className="flex-grow p-6 overflow-y-auto space-y-4">
       <MessageList messages={chatState.messages} />
       
@@ -713,6 +796,121 @@ const ChatPanel = ({ chatState }) => (
     </div>
   </div>
 );
+
+/**
+ * スライドプレビューのラッパーコンポーネント
+ * 承認済みスライドと現在作業中のスライドを縦に並べて表示する
+ */
+const SlidePreviewItem = ({ htmlContent, containerWidth }) => {
+  // スライドの基本サイズ
+  const baseWidth = 1280;
+  const baseHeight = 720;
+
+  // コンテナ幅に基づいてスケールを計算 (padding分を考慮)
+  const scale = containerWidth > 0 ? (containerWidth - 16) / baseWidth : 1;
+  const scaledHeight = baseHeight * scale;
+
+  return (
+    <div 
+      className="relative w-full rounded-lg overflow-hidden shadow-lg border border-white/10"
+      style={{ height: `${scaledHeight}px` }}
+    >
+      <iframe
+        key={htmlContent} // HTMLが変更されたらiframeを強制的に再読み込み
+        srcDoc={htmlContent}
+        width={baseWidth}
+        height={baseHeight}
+        className="border-none"
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left', // 左上基点で拡縮
+        }}
+        sandbox="allow-same-origin" // スクリプトは許可しない
+        title="Slide Preview Item"
+      />
+    </div>
+  );
+};
+
+/**
+ * プレビューパネル本体
+ * 縦スクロールコンテナ
+ */
+const PreviewPanel = ({ generatedSlides, htmlContent, isLoading, loadingSlideTitle }) => {
+  const containerRef = useRef(null);
+  const scrollEndRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  // コンテナの幅を監視し、スケーリング計算用に保持
+  useEffect(() => {
+    const observer = new ResizeObserver(entries => {
+      if (entries[0]) {
+        const { width } = entries[0].contentRect;
+        setContainerWidth(width);
+      }
+    });
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  // スライドが追加または更新されたら、一番下にスクロール
+  useEffect(() => {
+    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [generatedSlides, htmlContent, isLoading]); // 依存配列にisLoadingも追加
+
+  return (
+    <div 
+      ref={containerRef} 
+      // ★修正: h-full, overflow-y-auto を追加
+      className="w-full h-full bg-black/10 rounded-xl flex flex-col p-4 border border-white/10 overflow-y-auto"
+    >
+      {/* 承認済みのスライドをマッピング */}
+      <div className="space-y-4">
+        {generatedSlides.map((slideHtml, index) => (
+          <SlidePreviewItem 
+            key={index}
+            htmlContent={slideHtml}
+            containerWidth={containerWidth}
+          />
+        ))}
+
+        {/* 現在プレビュー中のスライド (承認待ち) */}
+        {htmlContent && !isLoading && (
+          <SlidePreviewItem 
+            htmlContent={htmlContent}
+            containerWidth={containerWidth}
+          />
+        )}
+
+        {/* 現在生成中のローディング表示 */}
+        {isLoading && (
+          <div 
+            className="w-full flex flex-col items-center justify-center bg-white/5 rounded-lg border border-dashed border-indigo-500"
+            // スケーリング後の高さに合わせる
+            style={{ height: `${720 * ((containerWidth - 16) / 1280)}px` }}
+          >
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+              <p className="mt-4 text-lg font-semibold">
+                {loadingSlideTitle || 'スライドを生成中...'}
+              </p>
+              <p className="mt-1 text-sm text-gray-400">
+                HTMLコードを組み立て中...
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 自動スクロール用のアンカー */}
+      <div ref={scrollEndRef} />
+    </div>
+  );
+};
 
 const ApiKeyModal = ({ isOpen, tempApiKey, setTempApiKey, handleSave }) => {
   if (!isOpen) return null;
@@ -1004,9 +1202,118 @@ export default function App() {
     if (result && !result.error) {
       try {
         const outline = JSON.parse(result);
-        setSlideOutline(outline);
+
+        // ▼▼▼ サニタイズ処理 (前回実装) ▼▼▼
+        const sanitizedOutline = outline.map(slide => {
+            const newSlide = { ...slide };
+
+            // 1. 'content_basic' のサニタイズ (summary -> items)
+            if (newSlide.template === 'content_basic') {
+                if ((!newSlide.items || (Array.isArray(newSlide.items) && newSlide.items.length === 0)) && 
+                    (newSlide.summary && typeof newSlide.summary === 'string' && newSlide.summary.trim().length > 0)) {
+                    newSlide.items = newSlide.summary.split('\n')
+                        .map(item => item.trim())
+                        .filter(item => item.length > 0);
+                }
+                newSlide.summary = ""; 
+            }
+            // 2. 構造化テンプレート (points, columns, table, steps) のサニタイズ
+            else if (['three_points', 'comparison', 'vertical_steps', 'table_basic'].includes(newSlide.template)) {
+                newSlide.summary = "";
+            }
+            // 3. 'summary' ベースのテンプレートのサニタイズ (items -> summary)
+            else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {
+                if ((!newSlide.summary || (typeof newSlide.summary === 'string' && newSlide.summary.trim().length === 0)) && 
+                    (newSlide.items && Array.isArray(newSlide.items) && newSlide.items.length > 0)) {
+                    newSlide.summary = newSlide.items.join('\n');
+                }
+                newSlide.items = null;
+                newSlide.points = null;
+                newSlide.columns = null;
+                newSlide.table = null;
+                if (typeof newSlide.summary !== 'string') {
+                    newSlide.summary = "";
+                }
+            }
+            // 4. コンテンツ不要のテンプレートのサニタイズ
+            else if (newSlide.template === 'section_header') {
+                newSlide.summary = "";
+                newSlide.items = null;
+                newSlide.points = null;
+                newSlide.columns = null;
+                newSlide.table = null;
+            }
+
+            return newSlide;
+        });
+        // ▲▲▲ サニタイズ処理ここまで ▲▲▲
+
+        
+        // ▼▼▼ ここからルールチェックと強制修正ロジック ▼▼▼
+        let finalOutline = [...sanitizedOutline];
+
+        // === 1. アジェンダのチェックと修正 ===
+        // (「2枚目」がアジェンダかどうかをチェック)
+        const hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda';
+
+        if (includeAgenda) {
+            // "はい" を選んだのに、無い場合
+            if (!hasAgenda) {
+                // 3枚目以降（インデックス1以降）のタイトルを収集して目次を作成
+                const agendaItems = finalOutline
+                    .slice(1) // 1枚目(title_slide)を除外
+                    .map(slide => slide.title || '')
+                    .filter(title => title.length > 0)
+                    .join('\n'); // 改行で結合
+
+                const newAgendaSlide = {
+                    title: "アジェンダ",
+                    summary: agendaItems || '（目次がありません）', // フォールバック
+                    template: "agenda",
+                    items: null, points: null, columns: null, table: null,
+                };
+                
+                // 2枚目（インデックス 1）に強制挿入
+                finalOutline.splice(1, 0, newAgendaSlide);
+                
+                // ユーザーへの通知（UI上には表示せず、内部的な状態変更のみ）
+                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
+            }
+        } else {
+            // "いいえ" を選んだのに、有る場合
+            if (hasAgenda) {
+                // 2枚目のアジェンダを削除
+                finalOutline.splice(1, 1);
+                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。" }]);
+            }
+            // 念のため、2枚目以外のアジェンダも削除（1枚目は除く）
+            finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'agenda');
+        }
+
+        // === 2. セクションヘッダーのチェックと修正 ===
+        const hasSectionHeaders = finalOutline.some(slide => slide.template === 'section_header');
+        
+        if (useSectionHeaders) {
+            // "はい" を選んだのに、無い場合
+            if (!hasSectionHeaders) {
+                // 警告を出す
+                setMessages(prev => [...prev, { type: 'system', text: "【警告】セクションヘッダーの自動挿入（はい）を選択しましたが、AIが構成案に含めなかった可能性があります。構成案を確認してください。" }]);
+            }
+        } else {
+            // "いいえ" を選んだのに、有る場合
+            if (hasSectionHeaders) {
+                // 1枚目（title_slide）以外で、section_header を全て削除
+                finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'section_header');
+                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘッダーを生成したため、構成案から削除しました。" }]);
+            }
+        }
+        // ▲▲▲ ルールチェックここまで ▲▲▲
+
+        setSlideOutline(finalOutline); // ← ルールチェック済みのデータをセット
         setAppStatus(APP_STATUS.OUTLINE_CREATED);
+        // 構成案が生成されたことを示すメインのメッセージは最後に表示
         setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
+
       } catch (error) {
         setApiErrorStep('outline');
         setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
@@ -1014,10 +1321,10 @@ export default function App() {
     } else {
       // エラーハンドリング
       setApiErrorStep('outline');
-      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せぬエラーが発生しました。' }]);
+      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せずエラーが発生しました。' }]);
     }
   };
-
+  
   const handleOutlineChange = (index, field, value) => {
     const newOutline = [...slideOutline];
     if (field === 'infographic') {
@@ -1421,7 +1728,7 @@ export default function App() {
 
     const newGeneratedSlides = [...generatedSlides, currentSlideHtml];
     setGeneratedSlides(newGeneratedSlides);
-    setCurrentSlideHtml('');
+    setCurrentSlideHtml(''); // ★プレビューをクリアしてローディングに戻す
 
     const nextIndex = currentSlideIndex + 1;
     if (nextIndex < slideOutline.length) {
@@ -1486,17 +1793,74 @@ export default function App() {
       <AppHeader onSettingsClick={() => setIsApiKeyModalOpen(true)} />
 
       <main className="flex-grow flex p-6 gap-6 overflow-hidden">
-        <FileUploadPanel isProcessing={isProcessing} processingStatus={processingStatus} fileName={fileName} handleDragOver={handleDragOver} handleDrop={handleDrop} onFileSelect={handleFileSelect} appStatus={appStatus} />
-        <ChatPanel chatState={{
-            messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus,
-            apiErrorStep, handleRetry,
-            structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, 
-            selectedTheme, design, handleThemeSelection, handleDesignSelection, handleThemeApproval, // 修正箇所
-            handleAgendaChoice, handleSectionHeaderChoice,
+        
+        {/* 左側パネルのラッパー (幅を動的に変更) */}
+        <div className={`transition-all duration-300 ease-in-out ${
+           appStatus === APP_STATUS.INITIAL || 
+           appStatus === APP_STATUS.STRUCTURING || 
+           appStatus === APP_STATUS.STRUCTURED || 
+           appStatus === APP_STATUS.SELECTING_THEME || 
+           appStatus === APP_STATUS.CREATING_OUTLINE || 
+           appStatus === APP_STATUS.SELECTING_SECTION_HEADERS || 
+           appStatus === APP_STATUS.GENERATING_OUTLINE || 
+           appStatus === APP_STATUS.OUTLINE_CREATED ? 'w-1/3' : 'w-1/2'
+        }`}>
+          {appStatus === APP_STATUS.INITIAL || 
+           appStatus === APP_STATUS.STRUCTURING || 
+           appStatus === APP_STATUS.STRUCTURED || 
+           appStatus === APP_STATUS.SELECTING_THEME || 
+           appStatus === APP_STATUS.CREATING_OUTLINE || 
+           appStatus === APP_STATUS.SELECTING_SECTION_HEADERS || 
+           appStatus === APP_STATUS.GENERATING_OUTLINE || 
+           appStatus === APP_STATUS.OUTLINE_CREATED ? (
+            <FileUploadPanel 
+              isProcessing={isProcessing} 
+              processingStatus={processingStatus} 
+              fileName={fileName} 
+              handleDragOver={handleDragOver} 
+              handleDrop={handleDrop} 
+              onFileSelect={handleFileSelect} 
+              appStatus={appStatus} 
+            />
+          ) : (
+            <PreviewPanel 
+              // 承認済みのスライド配列を渡す
+              generatedSlides={generatedSlides}
+              // 現在プレビュー/生成中のHTMLを渡す
+              htmlContent={currentSlideHtml}
+              // ローディング状態を渡す (生成中で、まだHTMLが来ていない状態)
+              isLoading={isProcessing && !currentSlideHtml && (appStatus === APP_STATUS.GENERATING_SLIDES)}
+              // ローディング中に表示するタイトルを渡す
+              loadingSlideTitle={slideOutline[currentSlideIndex]?.title}
+            />
+          )}
+        </div>
+        
+        {/* 右側パネル（ChatPanel）のラッパー (幅を動的に変更) */}
+        <div className={`transition-all duration-300 ease-in-out ${
+            appStatus === APP_STATUS.INITIAL || 
+            appStatus === APP_STATUS.STRUCTURING || 
+            appStatus === APP_STATUS.STRUCTURED || 
+            appStatus === APP_STATUS.SELECTING_THEME || 
+            appStatus === APP_STATUS.CREATING_OUTLINE || 
+            appStatus === APP_STATUS.SELECTING_SECTION_HEADERS || 
+            appStatus === APP_STATUS.GENERATING_OUTLINE || 
+            appStatus === APP_STATUS.OUTLINE_CREATED ? 'w-2/3' : 'w-1/2'
+          }`}>
 
-            slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent, handleOpenModifyModal, handleOpenModifyAllModal,            currentSlideIndex, thinkingState,
-            handlePreview, handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
-        }} />
+          <ChatPanel chatState={{
+              messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus,
+              apiErrorStep, handleRetry,
+              structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, 
+              selectedTheme, design, handleThemeSelection, handleDesignSelection, handleThemeApproval,
+              handleAgendaChoice, handleSectionHeaderChoice,
+
+              slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent, handleOpenModifyModal, handleOpenModifyAllModal,
+              currentSlideIndex, thinkingState,
+              handlePreview, // 関数はそのまま渡す
+              handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
+          }} />
+        </div> {/* ▲▲▲ ラッパーdivの閉じタグを追加 ▲▲▲ */}
       </main>
 
       <ApiKeyModal isOpen={isApiKeyModalOpen} tempApiKey={tempApiKey} setTempApiKey={setTempApiKey} handleSave={handleApiKeySave} />
