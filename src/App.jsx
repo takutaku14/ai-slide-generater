@@ -142,8 +142,13 @@ ${text}`,
   - もし元のデータがこのサイズに **要約しきれないほど多い場合**、無理に1枚に押し込めず、\`template\` が \`table_basic\` のスライドを **複数枚に分割** してください。
     - （例：1枚目のタイトルを「**機能比較 (1/2)**」、2枚目のタイトルを「**機能比較 (2/2)**」のようにし、表の続きを2枚目に配置してください。この際、**ヘッダー行は両方のスライドに含めてください**。）
 
-- 3つの項目を並列に紹介する場合は \`three_points\` の使用を優先してください。
-  - \`three_points\` の場合、\`summary\`は空にし、代わりに\`points\`というキーで3要素の配列を生成してください。
+- **【▼▼▼ 修正点 ▼▼▼】**
+- \`three_points\` テンプレートを使用する場合、
+  - **\`summary\`キーは絶対に空（""）**にしてください。
+  - 代わりに **\`points\`キー** で、**必ず3要素のオブジェクト配列**を生成してください。
+  - 各オブジェクトには **\`title\`** (文字列), **\`summary\`** (文字列), **\`icon_description\`** (文字列、AIがSVGを生成するための指示) の3つのキーを**必ず含めてください**。
+  - （例: \`{"title": "ポイント1", "summary": "ポイント1の要約...", "icon_description": "チェックマークのアイコン"}\`）
+- **【▲▲▲ 修正点ここまで ▲▲▲】**
 
 - 時系列やステップを示す場合は \`vertical_steps\` を選択してください。
   - \`vertical_steps\` の場合、\`summary\`は空にし、代わりに\`items\`というキーで要素の配列を生成してください。
@@ -160,7 +165,18 @@ ${sectionHeaderCondition}
 [
   { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
   { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { ... } },
-  { "title": "3つのプラン", "summary": "", "template": "three_points", "points": [ ... ] },
+  
+  { 
+    "title": "3つのプラン", 
+    "summary": "", 
+    "template": "three_points", 
+    "points": [ 
+      { "title": "プランA", "summary": "プランAの簡潔な説明...", "icon_description": "シンプルな「A」の文字のアイコン" }, 
+      { "title": "プランB", "summary": "プランBの簡潔な説明...", "icon_description": "シンプルな「B」の文字のアイコン" }, 
+      { "title": "プランC", "summary": "プランCの簡潔な説明...", "icon_description": "シンプルな「C」の文字のアイコン" } 
+    ] 
+  },
+  
   { "title": "プロジェクトの3ステップ", "summary": "", "template": "vertical_steps", "items": [ ... ] },
   { "title": "主な特長", "summary": "", "template": "content_basic", "items": [ ... ] },
   { "title": "A案とB案の比較", "summary": "", "template": "comparison", "columns": [ ... ] },
@@ -670,7 +686,7 @@ const UserInput = ({ value, onChange, onSend, disabled }) => (
     </div>
 );
 
-const GenerationControls = ({ onPreview, onApprove, onEditCode, disabled }) => (
+const GenerationControls = ({ onPreview, onApprove, onEditCode, onRegenerate, disabled }) => ( // 1. onRegenerate を props に追加
     <div className="flex justify-end mt-4 space-x-2">
         <button 
           className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50 hidden" // hiddenクラスを追加
@@ -679,6 +695,15 @@ const GenerationControls = ({ onPreview, onApprove, onEditCode, disabled }) => (
         >
           プレビュー
         </button>
+        {/* ▼▼▼ 2. 再生成ボタンを追加 ▼▼▼ */}
+        <button 
+          className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" 
+          disabled={disabled} 
+          onClick={onRegenerate}
+        >
+          再生成
+        </button>
+        {/* ▲▲▲ 追加ここまで ▲▲▲ */}
         <button className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" disabled={disabled} onClick={onEditCode}>ソースコードを編集</button>
         <button className="px-4 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" disabled={disabled} onClick={onApprove}>承認して次へ</button>
     </div>
@@ -792,7 +817,13 @@ const ChatPanel = ({ chatState }) => (
 
     <div className="flex-shrink-0 p-4 border-t border-white/10 bg-black/20">
       <UserInput value={chatState.userInput} onChange={(e) => chatState.setUserInput(e.target.value)} onSend={chatState.handleSendMessage} disabled={chatState.appStatus !== APP_STATUS.SLIDE_GENERATED} />
-      <GenerationControls onPreview={chatState.handlePreview} onApprove={chatState.handleApproveAndNext} onEditCode={chatState.handleOpenCodeEditor} disabled={chatState.appStatus !== APP_STATUS.SLIDE_GENERATED} />
+      <GenerationControls 
+        onPreview={chatState.handlePreview} 
+        onApprove={chatState.handleApproveAndNext} 
+        onEditCode={chatState.handleOpenCodeEditor} 
+        onRegenerate={chatState.handleRegenerateCurrentSlide} // 3. この行を追加
+        disabled={chatState.appStatus !== APP_STATUS.SLIDE_GENERATED} 
+      />
     </div>
   </div>
 );
@@ -861,6 +892,8 @@ const PreviewPanel = ({ generatedSlides, htmlContent, isLoading, loadingSlideTit
   useEffect(() => {
     scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [generatedSlides, htmlContent, isLoading]); // 依存配列にisLoadingも追加
+
+  
 
   return (
     <div 
@@ -1608,8 +1641,10 @@ export default function App() {
             
             // ★修正: 先頭のスペースを除去した後、AIが誤って挿入したマーカーも除去
             let textContent = trimmedItem.trim();
-            // '1. ' や '* ' や '- ' などを正規表現で強制的に削除
-            textContent = textContent.replace(/^([\*\-]|(\d+\.)|[a-z]\.)\s+/, ''); 
+            
+            // '1. ' や '* ' や '- ' や '・ ' などを正規表現で強制的に削除
+            // 日本語の「・」や「●」「■」も対象に追加し、スペースが0個でもマッチするよう \s* に変更
+            textContent = textContent.replace(/^([\*\-\・\●\■]|(\d+\.)|[a-z]\.)\s*/, ''); 
 
             // スペース2個で1レベル (2em) のインデントとする
             const indentLevel = Math.floor(leadingSpaces / 2); // 0, 1, 2...
@@ -1669,7 +1704,10 @@ export default function App() {
       await new Promise(resolve => setTimeout(resolve, 800));
 
       finalHtml = Object.entries(replacements).reduce((acc, [key, value]) => {
+          // ▼▼▼ ここを修正 ▼▼▼
+          // `\S` (大文字) を `\\` (バックスラッシュ) に修正
           const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+          // ▲▲▲ 修正ここまで ▲▲▲
           return acc.replace(regex, value);
       }, template);
 
@@ -1764,6 +1802,21 @@ export default function App() {
     }
   };
 
+  const handleRegenerateCurrentSlide = () => {
+    // 承認待ち以外のステータスでは何もしない
+    if (appStatus !== APP_STATUS.SLIDE_GENERATED) return;
+
+    const slideTitle = slideOutline[currentSlideIndex]?.title || '';
+    setMessages(prev => [...prev, { type: 'system', text: `スライド「${slideTitle}」を再生成します。`}]);
+    
+    // 現在のHTMLをクリアして、プレビューをローディング状態に戻す
+    setCurrentSlideHtml(''); 
+    
+    // 現在のスライドインデックスを使って、generateSlide 関数を再度呼び出す
+    generateSlide(currentSlideIndex);
+  };
+
+
   const handleSendMessage = () => {
     if (!userInput.trim() || appStatus !== APP_STATUS.SLIDE_GENERATED) return;
     setMessages(prev => [...prev, { type: 'user', text: userInput }]);
@@ -1788,6 +1841,22 @@ export default function App() {
   };
 
   // --- Render ---
+
+  // 1. スライドを「新規生成」している状態
+  const isGenerating = appStatus === APP_STATUS.GENERATING_SLIDES;
+  // 2. スライドを「修正」している状態
+  const isModifying = appStatus === APP_STATUS.SLIDE_GENERATED && isProcessing;
+  
+  // 1か2のどちらかであれば、プレビューパネルはローディング中
+  const isPreviewLoading = isGenerating || isModifying;
+
+  // ローディング中に表示するタイトルを定義
+  const loadingTitle = isGenerating
+    ? slideOutline[currentSlideIndex]?.title // 新規生成中のタイトル
+    : isModifying
+      ? `${slideOutline[currentSlideIndex]?.title} を修正中...` // 修正中のタイトル
+      : ''; // それ以外
+
   return (
     <div className="bg-[#1e1e1e] h-screen w-screen flex flex-col font-sans text-white">
       <AppHeader onSettingsClick={() => setIsApiKeyModalOpen(true)} />
@@ -1824,14 +1893,12 @@ export default function App() {
             />
           ) : (
             <PreviewPanel 
-              // 承認済みのスライド配列を渡す
               generatedSlides={generatedSlides}
-              // 現在プレビュー/生成中のHTMLを渡す
               htmlContent={currentSlideHtml}
-              // ローディング状態を渡す (生成中で、まだHTMLが来ていない状態)
-              isLoading={isProcessing && !currentSlideHtml && (appStatus === APP_STATUS.GENERATING_SLIDES)}
-              // ローディング中に表示するタイトルを渡す
-              loadingSlideTitle={slideOutline[currentSlideIndex]?.title}
+              // 以前の複雑なロジックから、新しい変数に置き換え
+              isLoading={isPreviewLoading}
+              // ローディングタイトルも新しい変数に置き換え
+              loadingSlideTitle={loadingTitle}
             />
           )}
         </div>
@@ -1857,7 +1924,8 @@ export default function App() {
 
               slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent, handleOpenModifyModal, handleOpenModifyAllModal,
               currentSlideIndex, thinkingState,
-              handlePreview, // 関数はそのまま渡す
+              handlePreview, 
+              handleRegenerateCurrentSlide, 
               handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
           }} />
         </div> {/* ▲▲▲ ラッパーdivの閉じタグを追加 ▲▲▲ */}
