@@ -137,10 +137,48 @@ export const standardTemplates = {
         .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 60px 80px; background: var(--bg-color); display: flex; flex-direction: column; }
         .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 40px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .slide-body { padding-left: 20px; }
-        ul { padding-left: 30px; margin: 0; }
-        li { font-size: 24px; color: var(--sub-text-color); line-height: 1.8; margin-bottom: 15px; font-weight: 400; white-space: pre-wrap; }
-        li::marker { color: var(--accent-color); font-size: 1.2em; }
+        .slide-body { padding-left: 20px; overflow: hidden; /* ★追加: 万が一はみ出た場合にレイアウト崩れを防ぐ */}
+        ul { 
+            padding-left: 0; /* ★修正: 標準インデントをリセット */
+            margin: 0; 
+            list-style-type: none; /* ★修正: 標準マーカーを削除 */
+        }
+        li { 
+            font-size: 22px; /* ★修正: 24px -> 22px に変更 */
+            color: var(--sub-text-color); 
+            line-height: 1.7; /* ★修正: 1.8 -> 1.7 に変更 */
+            margin-bottom: 12px; /* ★修正: 15px -> 12px に変更 */
+            font-weight: 400; 
+            white-space: pre-wrap;
+            position: relative;
+            padding-left: 1.5em;
+        }
+        li[data-level="0"]::before { /* ★修正: li::before から変更 (レベル0を明示) */
+            content: '●';
+            color: var(--accent-color);
+            font-size: 0.8em;
+            position: absolute;
+            left: 0.2em;
+            top: 0.15em;
+        }
+        li[data-level="1"]::before {
+            content: '○';
+            color: var(--accent-color); /* ★追加: 念のため色を指定 */
+            font-size: 0.7em;
+            position: absolute; /* ★追加: 念のため指定 */
+            left: 0.25em;
+            top: 0.2em;
+        }
+        li[data-level="2"]::before,
+        li[data-level="3"]::before,
+        li[data-level="4"]::before {
+            content: '■';
+            color: var(--accent-color); /* ★追加: 念のため色を指定 */
+            font-size: 0.6em;
+            position: absolute; /* ★追加: 念のため指定 */
+            left: 0.3em;
+            top: 0.3em;
+        }
     </style>
 </head>
 <body class="{theme_class}">
@@ -389,4 +427,69 @@ export const standardTemplates = {
   // two_points: `...` (three_pointsに統合)
   // four_points: `...` (three_pointsに統合)
   // icon_list: `...` (content_basic や points で代替可能)
+
+  // 10. 表（テーブル）
+  table_basic: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
+            --bg-color-light: #FFFFFF; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 60px 80px; background: var(--bg-color); display: flex; flex-direction: column; }
+        .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        
+        .table-container { 
+            width: 100%; 
+            height: calc(100% - 100px); /* ヘッダーの高さを引いた分 */
+            overflow: hidden; /* スクロールバーはなし */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed; /* 列幅を固定し、はみ出しを防ぐ */
+        }
+        th, td {
+            border: 1px solid var(--sub-text-color);
+            padding: 10px;
+            font-size: 18px;
+            color: var(--sub-text-color);
+            word-wrap: break-word; /* セル内でテキストを改行 */
+            text-align: left;
+        }
+        th {
+            background-color: var(--accent-color);
+            color: var(--bg-color-light);
+            font-weight: 700;
+        }
+        body.theme-dark th { color: var(--bg-color-dark); }
+        tr:nth-child(even) { 
+            background-color: rgba(128, 128, 128, 0.1);
+        }
+        body.theme-light tr:nth-child(even) {
+             background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        <div class="table-container">
+            <table>
+                {table_html}
+            </table>
+        </div>
+    </div>
+</body>
+</html>`,
 };

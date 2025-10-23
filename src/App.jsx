@@ -52,34 +52,44 @@ ${text}`,
 - \`title_slide\`: 表紙
 - \`agenda\`: 目次
 - \`section_header\`: 章の区切り
-- \`content_basic\`: **箇条書き**（番号なし・あり両方）のための最も標準的なテンプレート。
+- \`content_basic\`: **単純な箇条書き**（番号なし・あり両方）のための最も標準的なテンプレート。
 - \`content_with_diagram\`: 文章と図解（インフォグラフィック）。
 - \`three_points\`: 3つの要点を横並びで表示。
 - \`vertical_steps\`: 時系列やステップ。
 - \`comparison\`: **2つの項目（メリット/デメリット、A案/B案など）を比較・対比**するための専用テンプレート。
+- \`table_basic\`: **表形式（テーブル）**。機能一覧、比較表、数値データなど。
 - \`summary_or_thankyou\`: 最後のまとめ、または「ご聴取ありがとうございました」用。
 
 ### 条件
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
 - **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（- や 1.）を使用してください。
 
-- **箇条書き（番号付き/なし）が中心のスライド**を作成する場合は、\`content_basic\` テンプレートを最優先で使用してください。
+- **単純な箇条書き（番号付き/なし）が中心のスライド**を作成する場合は、\`content_basic\` テンプレートを最優先で使用してください。
   - \`content_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`items\`キー** で「箇条書きの各項目（文字列）」の配列を生成してください。
-  - 例: \`"title": "主な特長", "summary": "", "template": "content_basic", "items": ["高速処理", "高い安全性", "簡単な操作性"]\`
+  - **【最重要】\`items\` の各項目（文字列）の先頭には、ハイフン（-）やアスタリスク（*）、数字（1.）などのリストマーカーを**絶対に**含めないでください。（CSSで自動付与されます）
+  - もし箇条書きを**ネスト（インデント）**させたい場合は、項目の先頭に**半角スペース2個**を挿入してください。（例： \`"  これが子項目です"\`）
+  - 孫項目は半角スペース4個（\`"    これが孫項目です"\`）のように表現してください。
+  - **【行数制限】**: スライドの視認性を保つため、\`content_basic\` の \`items\` 配列は **最大7行（7項目）程度** に収めてください。
+  - **【自動分割】**: もし元のデータがこのサイズに **要約しきれないほど多い場合**、無理に1枚に押し込めたり、情報を省略したりしないでください。
+  - **【分割ルール】**: その場合、\`template\` が \`content_basic\` のスライドを **複数枚に分割** してください。（例：1枚目のタイトルを「**主な特長 (1/2)**」、2枚目のタイトルを「**主な特長 (2/2)**」のようにし、8行目以降の項目を2枚目に配置してください。）
 
+- **2つの項目を比較・対比**している場合は、... // ← この行は置き換えに含めないでください
 - **2つの項目を比較・対比**している場合は、\`comparison\` テンプレートを最優先で使用してください。
   - \`comparison\` を選択した場合、\`summary\`は空にし、代わりに\`columns\`というキーで2要素の配列を生成してください。
-  - 各要素は \`{ "title": "(カラム1のタイトル)", "items": ["(カラム1の箇条書き1)", "(カラム1の箇条書き2)"] }\` の形式です。
+
+- **表形式（テーブル）が最適なデータ**（例：機能比較一覧、数値データ一覧など）を表現する場合は、\`table_basic\` テンプレートを最優先で使用してください。
+  - \`table_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`table\`キー** で \`{ "headers": ["(ヘッダー1)", ...], "rows": [ ["(行1データ1)", ...], ["(行2データ1)", ...] ] }\` の形式のオブジェクトを生成してください。
+  - **【表の重要ルール】**: スライドの視認性を保つため、\`table_basic\` の表は **最大10行、7列程度** に収めてください。
+  - もし元のデータがこのサイズに **要約しきれないほど多い場合**、無理に1枚に押し込めず、\`template\` が \`table_basic\` のスライドを **複数枚に分割** してください。
+    - （例：1枚目のタイトルを「**機能比較 (1/2)**」、2枚目のタイトルを「**機能比較 (2/2)**」のようにし、表の続きを2枚目に配置してください。この際、**ヘッダー行は両方のスライドに含めてください**。）
 
 - 3つの項目を並列に紹介する場合は \`three_points\` の使用を優先してください。
   - \`three_points\` の場合、\`summary\`は空にし、代わりに\`points\`というキーで3要素の配列を生成してください。
-  - 各要素は \`{ "title": "...", "summary": "...", "icon_description": "..." }\` の形式です。
 
 - 時系列やステップを示す場合は \`vertical_steps\` を選択してください。
   - \`vertical_steps\` の場合、\`summary\`は空にし、代わりに\`items\`というキーで要素の配列を生成してください。
-  - 各要素は \`{ "title": "...", "description": "..." }\` の形式です。
 
-- \`content_with_diagram\` テンプレートを選択した場合、**スライドの本文を必ず \`summary\` キーに記述**してください。インフォグラフィックが必要な場合は、\`infographic\` オブジェクトを別途生成してください。
+- \`content_with_diagram\` テンプレートを選択した場合、**スライドの本文を必ず \`summary\` キーに記述**してください。
 
 ${agendaCondition}
 ${sectionHeaderCondition}
@@ -90,53 +100,23 @@ ${sectionHeaderCondition}
 - **最重要**: 出力はJSON配列の文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
 [
   { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
+  { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { ... } },
+  { "title": "3つのプラン", "summary": "", "template": "three_points", "points": [ ... ] },
+  { "title": "プロジェクトの3ステップ", "summary": "", "template": "vertical_steps", "items": [ ... ] },
+  { "title": "主な特長", "summary": "", "template": "content_basic", "items": [ ... ] },
+  { "title": "A案とB案の比較", "summary": "", "template": "comparison", "columns": [ ... ] },
   {
-    "title": "システムの概要",
-    "summary": "このシステムは、最新のAI技術を活用して業務効率を劇的に向上させます。\\n主な特徴は以下の3点です。\\n1. 高速処理\\n2. 高い安全性\\n3. 簡単な操作性",
-    "template": "content_with_diagram",
-    "infographic": {
-      "needed": true,
-      "description": "中央に脳のアイコンを配置し、そこから「スピード」「セキュリティ」「使いやすさ」を示す3つのアイコンへ線が伸びている図"
+    "title": "機能比較表 (1/2)",
+    "summary": "",
+    "template": "table_basic",
+    "table": {
+      "headers": [ "機能名", "プランA", "プランB" ],
+      "rows": [
+        [ "基本機能", "〇", "〇" ],
+        [ "高度な分析", "-", "〇" ],
+        [ "専用サポート", "-", "-" ]
+      ]
     }
-  },
-  {
-    "title": "3つのプラン",
-    "summary": "",
-    "template": "three_points",
-    "points": [
-      { "title": "ベーシックプラン", "summary": "個人利用に最適。", "icon_description": "一人の人物のシルエットアイコン" },
-      { "title": "プロプラン", "summary": "チームでの利用に最適。", "icon_description": "複数の人物のシルエットアイコン" },
-      { "title": "エンタープライズプラン", "summary": "大規模組織向け。", "icon_description": "近代的なオフィスのビルアイコン" }
-    ]
-  },
-  {
-    "title": "プロジェクトの3ステップ",
-    "summary": "",
-    "template": "vertical_steps",
-    "items": [
-      { "title": "ステップ1：計画", "description": "目標設定とリソースの割り当て。" },
-      { "title": "ステップ2：実行", "description": "計画に基づきタスクを遂行。" },
-      { "title": "ステップ3：評価", "description": "結果を分析し、次の計画へ反映。" }
-    ]
-  },
-  {
-    "title": "主な特長",
-    "summary": "",
-    "template": "content_basic",
-    "items": [
-      "独自のアルゴリズムによる高速処理",
-      "最新の暗号化技術による高い安全性",
-      "直感的なUIによる簡単な操作性"
-    ]
-  },
-  {
-    "title": "A案とB案の比較",
-    "summary": "",
-    "template": "comparison",
-    "columns": [
-      { "title": "A案 (現行)", "items": ["コストが低い", "導入が容易"] },
-      { "title": "B案 (新規)", "items": ["パフォーマンスが高い", "拡張性に優れる", "長期的なコスト削減"] }
-    ]
   },
   { "title": "ご清聴ありがとうございました", "summary": "", "template": "summary_or_thankyou" }
 ]
@@ -222,6 +202,7 @@ ${availableTemplates.map(t => `- **${t.name}**: ${t.description}`).join('\n')}
 - ${newTemplateName} が "content_basic" の場合: \`{ "items": ["項目1", "項目2", "項目3"] }\`
 - ${newTemplateName} が "three_points" の場合: \`{ "points": [ { "title": "...", "summary": "...", "icon_description": "..." }, ... ] }\`
 - ${newTemplateName} が "comparison" の場合: \`{ "columns": [ { "title": "A案", "items": [...] }, { "title": "B案", "items": [...] } ] }\`
+- ${newTemplateName} が "table_basic" の場合: \`{ "table": { "headers": ["H1", "H2"], "rows": [["R1C1", "R1C2"], ["R2C1", "R2C2"]] } }\`
 - ${newTemplateName} が "content_with_diagram" の場合: \`{ "summary": "ここにスライドの本文が入ります...", "infographic": { "needed": true, "description": "..." } }\`
 `;
   }
@@ -389,6 +370,23 @@ const SectionHeaderSelector = ({ onSelect }) => (
 );
 
 const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme, onRegenerate, onRegenerateContent, onModifySlide, onModifyAll }) => {
+  const handleTableChange = (slideIndex, field, value) => {
+    const newOutline = [...outline];
+    const newTable = { ...(newOutline[slideIndex].table || { headers: [], rows: [] }) };
+    if (field === 'headers') {
+      newTable.headers = value.split(',').map(h => h.trim());
+    }
+    onChange(slideIndex, 'table', newTable);
+  };
+
+  const handleTableRowsChange = (slideIndex, value) => {
+    const newOutline = [...outline];
+    const newTable = { ...(newOutline[slideIndex].table || { headers: [], rows: [] }) };
+    // テキストエリアの各行を配列に変換し、各行をカンマで区切ってセルの配列に変換
+    newTable.rows = value.split('\n').map(row => row.split(',').map(cell => cell.trim()));
+    onChange(slideIndex, 'table', newTable);
+  };
+  
   const handlePointChange = (slideIndex, pointIndex, field, value) => {
     const newOutline = [...outline];
     const newPoints = [...(newOutline[slideIndex].points || [])];
@@ -523,6 +521,25 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                     <button onClick={() => handleAddColumnItem(index, colIndex)} className="mt-2 text-xs px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded">項目を追加</button>
                   </div>
                 ))}
+              </div>
+            ) : slide.template === 'table_basic' ? (
+              <div className="space-y-3 mt-3">
+                <div className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                  <label className="text-xs font-bold text-gray-400 mb-2 block">テーブルヘッダー (カンマ区切り)</label>
+                  <input
+                    type="text"
+                    value={Array.isArray(slide.table?.headers) ? slide.table.headers.join(', ') : ''}
+                    onChange={(e) => handleTableChange(index, 'headers', e.target.value)}
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">テーブル行 (1行に1レコード、セルはカンマ区切り)</label>
+                  <textarea
+                    value={Array.isArray(slide.table?.rows) ? slide.table.rows.map(row => row.join(', ')).join('\n') : ''}
+                    onChange={(e) => handleTableRowsChange(index, e.target.value)}
+                    rows={5}
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
               </div>
             ) : (
               <div>
@@ -1063,6 +1080,7 @@ export default function App() {
       { name: 'three_points', description: '`points` (3要素のオブジェクト配列) が必要。`summary`は空にする。' },
       { name: 'vertical_steps', description: '`items` (オブジェクト配列) が必要。`summary`は空にする。' },
       { name: 'comparison', description: '`columns` (2要素のオブジェクト配列) が必要。`summary`は空にする。' },
+      { name: 'table_basic', description: '`table` ({headers: [...], rows: [...]}) が必要。`summary`は空にする。' }, 
       { name: 'content_with_diagram', description: '`summary` (本文) が必要。必要なら `infographic` も生成。' },
       { name: 'agenda', description: '`summary` (改行区切りのリスト) が必要。' },
       { name: 'title_slide', description: '`summary` (サブタイトル) が必要。' },
@@ -1092,12 +1110,13 @@ export default function App() {
           if (newTemplateName !== 'content_basic') updatedSlide.items = null;
           if (newTemplateName !== 'three_points') updatedSlide.points = null;
           if (newTemplateName !== 'comparison') updatedSlide.columns = null;
-          
+          if (newTemplateName !== 'table_basic') updatedSlide.table = null; 
+
           // 2. AIが生成した新しいデータをマージ
           Object.assign(updatedSlide, newContent);
 
           // 3. テンプレートのルールに基づき、不要なデータを最終クリーンアップ
-          if (['content_basic', 'three_points', 'comparison', 'vertical_steps', 'section_header'].includes(newTemplateName)) {
+          if (['content_basic', 'three_points', 'comparison', 'vertical_steps', 'section_header', 'table_basic'].includes(newTemplateName)) {
             updatedSlide.summary = ""; // これらのテンプレートは summary を持たない
           }
           if (newTemplateName !== 'content_with_diagram') {
@@ -1276,8 +1295,22 @@ export default function App() {
             </div>
           `).join('');
         } else if (currentSlide.template === 'content_basic') {
-          // ★修正: item を parseInline で変換
-          itemsHtml = currentSlide.items.map(item => `<li>${marked.parseInline(item || '')}</li>`).join('');
+          itemsHtml = currentSlide.items.map(item => {
+            const trimmedItem = item || '';
+            const leadingSpaces = trimmedItem.match(/^(\s*)/)[0].length;
+            
+            // ★修正: 先頭のスペースを除去した後、AIが誤って挿入したマーカーも除去
+            let textContent = trimmedItem.trim();
+            // '1. ' や '* ' や '- ' などを正規表現で強制的に削除
+            textContent = textContent.replace(/^([\*\-]|(\d+\.)|[a-z]\.)\s+/, ''); 
+
+            // スペース2個で1レベル (2em) のインデントとする
+            const indentLevel = Math.floor(leadingSpaces / 2); // 0, 1, 2...
+            const indentStyle = indentLevel > 0 ? `style="margin-left: ${indentLevel * 2}em;"` : '';
+            
+            // data-level 属性を付与（アイコン変更に必須）
+            return `<li data-level="${indentLevel}" ${indentStyle}>${marked.parseInline(textContent || '')}</li>`;
+          }).join('');
         }
         replacements['{items_html}'] = itemsHtml;
       }
@@ -1297,6 +1330,32 @@ export default function App() {
             ? currentSlide.columns[1].items.map(item => `<li>${marked.parseInline(item || '')}</li>`).join('')
             : '';
         }
+      }
+
+      if (currentSlide.template === 'table_basic' && currentSlide.table) {
+        setThinkingState('designing');
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        let tableHtml = '<thead><tr>';
+        // ヘッダー生成 (marked.parseInline を使用)
+        if (Array.isArray(currentSlide.table.headers)) {
+          tableHtml += currentSlide.table.headers.map(header => `<th>${marked.parseInline(header || '')}</th>`).join('');
+        }
+        tableHtml += '</tr></thead>';
+        
+        // 行データ生成 (marked.parseInline を使用)
+        tableHtml += '<tbody>';
+        if (Array.isArray(currentSlide.table.rows)) {
+          tableHtml += currentSlide.table.rows.map(row => {
+            let rowHtml = '<tr>';
+            rowHtml += row.map(cell => `<td>${marked.parseInline(cell || '')}</td>`).join('');
+            rowHtml += '</tr>';
+            return rowHtml;
+          }).join('');
+        }
+        tableHtml += '</tbody>';
+        
+        replacements['{table_html}'] = tableHtml;
       }
 
       setThinkingState('coding');
