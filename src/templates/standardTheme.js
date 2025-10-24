@@ -214,10 +214,9 @@ export const standardTemplates = {
         .slide-body { display: grid; grid-template-columns: 40% 60%; gap: 40px; flex-grow: 1; align-items: center; }
         .content { 
                     font-size: 22px; line-height: 1.8; color: var(--sub-text-color); white-space: pre-wrap; font-weight: 400; 
-                    /* ▼▼▼ 本文を上下中央に配置するために以下を追加 ▼▼▼ */
                     display: flex; 
                     flex-direction: column; 
-                    justify-content: center; 
+                    justify-content: flex-start; 
                 }
         #infographic-slot { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
 

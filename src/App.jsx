@@ -119,6 +119,7 @@ ${text}`,
 
 ### 条件
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
+- **【最重要・JSONエスケープルール】**: \`summary\`や\`description\`などのJSON文字列内にバックスラッシュ（\`\\\`）を含める場合は、必ず（\`\\\\\`）と二重にエスケープしてください。（例: \`"summary": "C:\\\\Windows"\`）
 - **【文字数制限】**: スライドのタイトル（\`title\`キー）は、日本語で**27文字以内**の簡潔なものにしてください。長すぎて2行になるタイトルは避けてください。
 - **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（- や 1.）を使用してください。
 
@@ -150,10 +151,21 @@ ${text}`,
   - （例: \`{"title": "ポイント1", "summary": "ポイント1の要約...", "icon_description": "チェックマークのアイコン"}\`）
 - **【▲▲▲ 修正点ここまで ▲▲▲】**
 
-- 時系列やステップを示す場合は \`vertical_steps\` を選択してください。
-  - \`vertical_steps\` の場合、\`summary\`は空にし、代わりに\`items\`というキーで要素の配列を生成してください。
+- **【▼▼▼ 修正点 ▼▼▼】**
+- **【vertical_steps ルール】**
+- \`vertical_steps\` テンプレートを使用する場合、
+  - **\`summary\`キーは絶対に空（""）**にしてください。
+  - 代わりに **\`items\`キー** で、**オブジェクトの配列**を生成してください。
+  - 各オブジェクトには **\`title\`** (文字列) と **\`description\`** (文字列、そのステップの簡潔な説明) の2つのキーを**必ず含めてください**。
+  - （例: \`{"title": "ステップ1：申請", "description": "必要な書類を準備します。"}\`）
+- **【▲▲▲ 修正点ここまで ▲▲▲】**
 
-- \`content_with_diagram\` テンプレートを選択した場合、**スライドの本文を必ず \`summary\` キーに記述**してください。
+- **【▼▼▼ 修正点 ▼▼▼】**
+- \`content_with_diagram\` テンプレートを選択した場合、
+  - **スライドの本文を必ず \`summary\` キーに記述**してください。
+  - 同時に、**必ず \`infographic\` キー** で \`{ "needed": true, "description": "AIが図解を生成するための詳細な指示..." }\` の形式のオブジェクトを生成してください。
+  - AIへの指示（description）は、\`summary\`の内容を図解するために具体的に記述してください。
+- **【▲▲▲ 修正点ここまで ▲▲▲】**
 
 ${agendaCondition}
 ${sectionHeaderCondition}
@@ -164,7 +176,7 @@ ${sectionHeaderCondition}
 - **最重要**: 出力はJSON配列の文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
 [
   { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
-  { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { ... } },
+  { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { "needed": true, "description": "システム概要の構成図" } },
   
   { 
     "title": "3つのプラン", 
@@ -177,9 +189,9 @@ ${sectionHeaderCondition}
     ] 
   },
   
-  { "title": "プロジェクトの3ステップ", "summary": "", "template": "vertical_steps", "items": [ ... ] },
-  { "title": "主な特長", "summary": "", "template": "content_basic", "items": [ ... ] },
-  { "title": "A案とB案の比較", "summary": "", "template": "comparison", "columns": [ ... ] },
+  { "title": "プロジェクトの3ステップ", "summary": "", "template": "vertical_steps", "items": [ {"title": "ステップ1", "description": "ステップ1の説明..."}, {"title": "ステップ2", "description": "ステップ2の説明..."} ] },
+  { "title": "主な特長", "summary": "", "template": "content_basic", "items": [ "特長1", "特長2" ] },
+  { "title": "A案とB案の比較", "summary": "", "template": "comparison", "columns": [ {"title": "A案", "items": ["メリット1"]}, {"title": "B案", "items": ["メリット2"]} ] },
   {
     "title": "機能比較表 (1/2)",
     "summary": "",
@@ -565,9 +577,19 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                   slide.items?.map((item, itemIndex) => (
                     <div key={itemIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
                       <label className="text-xs font-bold text-gray-400 mb-2 block">項目 {itemIndex + 1} - タイトル</label>
-                      <input type="text" value={item.title} onChange={(e) => handleItemChange(index, itemIndex, 'title', e.target.value)} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      <input 
+                        type="text" 
+                        value={item.title || ''} 
+                        onChange={(e) => handleItemChange(index, itemIndex, 'title', e.target.value)} 
+                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                      />
                       <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">項目 {itemIndex + 1} - 説明</label>
-                      <textarea value={item.description} onChange={(e) => handleItemChange(index, itemIndex, 'description', e.target.value)} rows={2} className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                      <textarea 
+                        value={item.description || item.summary || ''} 
+                        onChange={(e) => handleItemChange(index, itemIndex, 'description', e.target.value)} 
+                        rows={2} 
+                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
+                      />
                     </div>
                   ))
                 )}
@@ -1231,7 +1253,7 @@ export default function App() {
   };
   
   const handleSectionHeaderChoice = async (useSectionHeaders) => {
-    setMessages(prev => [...prev, { type: 'user', text: `セクションヘッダー: ${useSectionHeaders ? 'はい' : 'いいえ'}` }]);
+    setMessages(prev => [...prev, { type: 'user', text: `セクションヘッダー: ${useSectionHeaders ? 'はい' : 'いえ'}` }]);
     setAppStatus(APP_STATUS.GENERATING_OUTLINE);
     setIsProcessing(true);
     setProcessingStatus('構成案を生成中...');
@@ -1241,130 +1263,161 @@ export default function App() {
     const result = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案生成');
     
     setIsProcessing(false);
+    
+    // ▼▼▼ 修正（ここからリファクタリング） ▼▼▼
+    
     if (result && !result.error) {
+      let outline;
       try {
-        const outline = JSON.parse(result);
-
-        // ▼▼▼ サニタイズ処理 (前回実装) ▼▼▼
-        const sanitizedOutline = outline.map(slide => {
-            const newSlide = { ...slide };
-
-            // 1. 'content_basic' のサニタイズ (summary -> items)
-            if (newSlide.template === 'content_basic') {
-                if ((!newSlide.items || (Array.isArray(newSlide.items) && newSlide.items.length === 0)) && 
-                    (newSlide.summary && typeof newSlide.summary === 'string' && newSlide.summary.trim().length > 0)) {
-                    newSlide.items = newSlide.summary.split('\n')
-                        .map(item => item.trim())
-                        .filter(item => item.length > 0);
-                }
-                newSlide.summary = ""; 
-            }
-            // 2. 構造化テンプレート (points, columns, table, steps) のサニタイズ
-            else if (['three_points', 'comparison', 'vertical_steps', 'table_basic'].includes(newSlide.template)) {
-                newSlide.summary = "";
-            }
-            // 3. 'summary' ベースのテンプレートのサニタイズ (items -> summary)
-            else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {
-                if ((!newSlide.summary || (typeof newSlide.summary === 'string' && newSlide.summary.trim().length === 0)) && 
-                    (newSlide.items && Array.isArray(newSlide.items) && newSlide.items.length > 0)) {
-                    newSlide.summary = newSlide.items.join('\n');
-                }
-                newSlide.items = null;
-                newSlide.points = null;
-                newSlide.columns = null;
-                newSlide.table = null;
-                if (typeof newSlide.summary !== 'string') {
-                    newSlide.summary = "";
-                }
-            }
-            // 4. コンテンツ不要のテンプレートのサニタイズ
-            else if (newSlide.template === 'section_header') {
-                newSlide.summary = "";
-                newSlide.items = null;
-                newSlide.points = null;
-                newSlide.columns = null;
-                newSlide.table = null;
-            }
-
-            return newSlide;
-        });
-        // ▲▲▲ サニタイズ処理ここまで ▲▲▲
-
+        // 1. まず通常通りパースを試みる
+        outline = JSON.parse(result);
         
-        // ▼▼▼ ここからルールチェックと強制修正ロジック ▼▼▼
-        let finalOutline = [...sanitizedOutline];
-
-        // === 1. アジェンダのチェックと修正 ===
-        // (「2枚目」がアジェンダかどうかをチェック)
-        const hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda';
-
-        if (includeAgenda) {
-            // "はい" を選んだのに、無い場合
-            if (!hasAgenda) {
-                // 3枚目以降（インデックス1以降）のタイトルを収集して目次を作成
-                const agendaItems = finalOutline
-                    .slice(1) // 1枚目(title_slide)を除外
-                    .map(slide => slide.title || '')
-                    .filter(title => title.length > 0)
-                    .join('\n'); // 改行で結合
-
-                const newAgendaSlide = {
-                    title: "アジェンダ",
-                    summary: agendaItems || '（目次がありません）', // フォールバック
-                    template: "agenda",
-                    items: null, points: null, columns: null, table: null,
-                };
-                
-                // 2枚目（インデックス 1）に強制挿入
-                finalOutline.splice(1, 0, newAgendaSlide);
-                
-                // ユーザーへの通知（UI上には表示せず、内部的な状態変更のみ）
-                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
-            }
-        } else {
-            // "いいえ" を選んだのに、有る場合
-            if (hasAgenda) {
-                // 2枚目のアジェンダを削除
-                finalOutline.splice(1, 1);
-                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。" }]);
-            }
-            // 念のため、2枚目以外のアジェンダも削除（1枚目は除く）
-            finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'agenda');
-        }
-
-        // === 2. セクションヘッダーのチェックと修正 ===
-        const hasSectionHeaders = finalOutline.some(slide => slide.template === 'section_header');
-        
-        if (useSectionHeaders) {
-            // "はい" を選んだのに、無い場合
-            if (!hasSectionHeaders) {
-                // 警告を出す
-                setMessages(prev => [...prev, { type: 'system', text: "【警告】セクションヘッダーの自動挿入（はい）を選択しましたが、AIが構成案に含めなかった可能性があります。構成案を確認してください。" }]);
-            }
-        } else {
-            // "いいえ" を選んだのに、有る場合
-            if (hasSectionHeaders) {
-                // 1枚目（title_slide）以外で、section_header を全て削除
-                finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'section_header');
-                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘッダーを生成したため、構成案から削除しました。" }]);
-            }
-        }
-        // ▲▲▲ ルールチェックここまで ▲▲▲
-
-        setSlideOutline(finalOutline); // ← ルールチェック済みのデータをセット
-        setAppStatus(APP_STATUS.OUTLINE_CREATED);
-        // 構成案が生成されたことを示すメインのメッセージは最後に表示
-        setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
-
       } catch (error) {
-        setApiErrorStep('outline');
-        setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+        // 2. パース失敗時
+        // 報告された「Bad escaped character」エラーの場合
+        if (error.message.includes('escaped character')) {
+          console.warn('[WARN] JSON parse failed. Retrying with backslash fix...');
+          try {
+            // 3. バックスラッシュを強制的に二重エスケープして再試行
+            const fixedResult = result.replace(/\\/g, '\\\\');
+            outline = JSON.parse(fixedResult);
+            // ユーザーに自動修正したことを通知
+            setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIの応答形式(エスケープ文字)を修正しました。" }]);
+          } catch (fixError) {
+             // 4. 修正してもパースに失敗した場合
+             console.error('[FATAL] Backslash fix failed.', fixError);
+             setApiErrorStep('outline');
+             setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+             return; // ここで処理を中断
+          }
+        } else {
+           // 5. エスケープ文字以外のエラーの場合
+           setApiErrorStep('outline');
+           setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+           return; // ここで処理を中断
+        }
       }
+
+      // --- パース成功時 (または修正成功時) の共通処理 ---
+      // (tryブロックからサニタイズ処理以降をすべて外に出す)
+
+      // ▼▼▼ サニタイズ処理 (前回実装) ▼▼▼
+      const sanitizedOutline = outline.map(slide => {
+          const newSlide = { ...slide };
+
+          // 1. 'content_basic' のサニタイズ (summary -> items)
+          if (newSlide.template === 'content_basic') {
+              if ((!newSlide.items || (Array.isArray(newSlide.items) && newSlide.items.length === 0)) && 
+                  (newSlide.summary && typeof newSlide.summary === 'string' && newSlide.summary.trim().length > 0)) {
+                  newSlide.items = newSlide.summary.split('\n')
+                      .map(item => item.trim())
+                      .filter(item => item.length > 0);
+              }
+              newSlide.summary = ""; 
+          }
+          // 2. 構造化テンプレート (points, columns, table, steps) のサニタイズ
+          else if (['three_points', 'comparison', 'vertical_steps', 'table_basic'].includes(newSlide.template)) {
+              newSlide.summary = "";
+          }
+          // 3. 'summary' ベースのテンプレートのサニタイズ (items -> summary)
+          else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {
+              if ((!newSlide.summary || (typeof newSlide.summary === 'string' && newSlide.summary.trim().length === 0)) && 
+                  (newSlide.items && Array.isArray(newSlide.items) && newSlide.items.length > 0)) {
+                  newSlide.summary = newSlide.items.join('\n');
+              }
+              newSlide.items = null;
+              newSlide.points = null;
+              newSlide.columns = null;
+              newSlide.table = null;
+              if (typeof newSlide.summary !== 'string') {
+                  newSlide.summary = "";
+              }
+          }
+          // 4. コンテンツ不要のテンプレートのサニタイズ
+          else if (newSlide.template === 'section_header') {
+              newSlide.summary = "";
+              newSlide.items = null;
+              newSlide.points = null;
+              newSlide.columns = null;
+              newSlide.table = null;
+          }
+
+          return newSlide;
+      });
+      // ▲▲▲ サニタイズ処理ここまで ▲▲▲
+
+      
+      // ▼▼▼ ここからルールチェックと強制修正ロジック ▼▼▼
+      let finalOutline = [...sanitizedOutline];
+
+      // === 1. アジェンダのチェックと修正 ===
+      // (「2枚目」がアジェンダかどうかをチェック)
+      const hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda';
+
+      if (includeAgenda) {
+          // "はい" を選んだのに、無い場合
+          if (!hasAgenda) {
+              // 3枚目以降（インデックス1以降）のタイトルを収集して目次を作成
+              const agendaItems = finalOutline
+                  .slice(1) // 1枚目(title_slide)を除外
+                  .map(slide => slide.title || '')
+                  .filter(title => title.length > 0)
+                  .join('\n'); // 改行で結合
+
+              const newAgendaSlide = {
+                  title: "アジェンダ",
+                  summary: agendaItems || '（目次がありません）', // フォールバック
+                  template: "agenda",
+                  items: null, points: null, columns: null, table: null,
+              };
+              
+              // 2枚目（インデックス 1）に強制挿入
+              finalOutline.splice(1, 0, newAgendaSlide);
+              
+              // ユーザーへの通知（UI上には表示せず、内部的な状態変更のみ）
+              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
+          }
+      } else {
+          // "いいえ" を選んだのに、有る場合
+          if (hasAgenda) {
+              // 2枚目のアジェンダを削除
+              finalOutline.splice(1, 1);
+              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。" }]);
+          }
+          // 念のため、2枚目以外のアジェンダも削除（1枚目は除く）
+          finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'agenda');
+      }
+
+      // === 2. セクションヘッダーのチェックと修正 ===
+      const hasSectionHeaders = finalOutline.some(slide => slide.template === 'section_header');
+      
+      if (useSectionHeaders) {
+          // "はい" を選んだのに、無い場合
+          if (!hasSectionHeaders) {
+              // 警告を出す
+              setMessages(prev => [...prev, { type: 'system', text: "【警告】セクションヘッダーの自動挿入（はい）を選択しましたが、AIが構成案に含めなかった可能性があります。構成案を確認してください。" }]);
+          }
+      } else {
+          // "いいえ" を選んだのに、有る場合
+          if (hasSectionHeaders) {
+              // 1枚目（title_slide）以外で、section_header を全て削除
+              finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'section_header');
+              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘッダーを生成したため、構成案から削除しました。" }]);
+          }
+      }
+      // ▲▲▲ ルールチェックここまで ▲▲▲
+
+      setSlideOutline(finalOutline); // ← ルールチェック済みのデータをセット
+      setAppStatus(APP_STATUS.OUTLINE_CREATED);
+      // 構成案が生成されたことを示すメインのメッセージは最後に表示
+      setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
+
     } else {
-      // エラーハンドリング
+      // エラーハンドリング (callGeminiApi自体のエラー)
       setApiErrorStep('outline');
       setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せずエラーが発生しました。' }]);
     }
+    // ▲▲▲ 修正（ここまで） ▲▲▲
   };
   
   const handleOutlineChange = (index, field, value) => {
