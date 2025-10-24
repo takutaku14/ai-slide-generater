@@ -212,18 +212,60 @@ export const standardTemplates = {
         .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
         .slide-body { display: grid; grid-template-columns: 40% 60%; gap: 40px; flex-grow: 1; align-items: center; }
+        
         .content { 
-                    font-size: 22px; line-height: 1.8; color: var(--sub-text-color); white-space: pre-wrap; font-weight: 400; 
-                    display: flex; 
-                    flex-direction: column; 
-                    justify-content: flex-start; 
-                }
-        #infographic-slot { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+            font-size: 22px; 
+            line-height: 1.7; /* ★修正: 基準となる行間を 1.7 に設定 */
+            color: var(--sub-text-color); 
+            /* white-space: pre-wrap; */ /* ★削除: markedがpタグを生成するため不要 */
+            font-weight: 400; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start;
+            /* ★追加: はみ出し防止 */
+            height: 100%;
+            overflow: hidden;
+        }
 
-        /* ▼▼▼ SVGがはみ出さないように、この4行を追加 ▼▼▼ */
+        /* ▼▼▼ 修正（ここから追加） ▼▼▼ */
+        /* marked.parse() が生成するタグのスタイルリセット */
+        .content p {
+            margin: 0 0 16px 0; /* 段落下のマージンを16pxに固定 */
+            line-height: 1.7;
+        }
+        .content p:last-child {
+            margin-bottom: 0; /* 最後の要素の余白を削除 */
+        }
+        .content ul {
+            margin: 0 0 16px 0; /* 箇条書きブロックのマージン */
+            padding-left: 1.5em; /* 箇条書きのインデント */
+            list-style-type: none; /* デフォルトの黒丸を削除 */
+        }
+        .content li {
+            margin: 0 0 12px 0; /* 項目間のマージン */
+            line-height: 1.7;
+            position: relative;
+            padding-left: 0.5em;
+        }
+        .content li::before {
+            content: '●'; /* content_basic と同じカスタムビュレット */
+            color: var(--accent-color);
+            font-size: 0.8em;
+            position: absolute;
+            left: -1.2em;
+            top: 0.15em;
+        }
+        .content strong {
+            font-weight: 700;
+            color: var(--text-color); /* AIが強調した部分を目立たせる */
+        }
+        /* ▲▲▲ 修正（ここまで） ▲▲▲ */
+        
+        #infographic-slot { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
         #infographic-slot svg {
-            max-width: 100%;
-            max-height: 100%;
+            width: 100%; /* max-width から変更 */
+            height: 100%; /* max-height から変更 */
+            object-fit: contain; /* アスペクト比を維持 */
         }
     </style>
 </head>

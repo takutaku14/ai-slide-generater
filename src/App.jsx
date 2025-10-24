@@ -221,7 +221,12 @@ ${markdown}`;
 ### 厳格なルール
 - **最重要:** あなたの応答は\`<svg\`で始まり、\`</svg>\`で終わる必要があります。これ以外のXML宣言、コードブロック、解説、テキストは絶対に含めないでください。
 - **【超重要】SVG内に\`<text>\`タグやその他のテキスト要素を一切含めないでください。アイコンや図形のみで内容を表現してください。**
-- SVGのサイズは、親要素に合わせて柔軟に拡縮されるように、\`width="100%"\` \`height="100%"\` \`viewBox="0 0 100 100"\` のように設定してください（viewBoxの値は内容に応じて調整可）。
+
+- **【サイズ指定の厳格なルール】**:
+- SVGタグには \`width="100%"\` と \`height="100%"\` を**必ず指定してください**。
+- \`viewBox="0 0 100 100"\` のように、viewBox属性を必ず指定してください（値は内容に応じて調整可）。
+- **絶対に \`width\` や \`height\` にピクセル値（例: \`width="500px"\`）を指定しないでください。**
+
 - SVG内の配色は、モダンで分かりやすいカラーパレット（例：#38bdf8, #818cf8, #e2e8f0 など）を使用してください。背景が暗いことを想定してください。
 
 ### インフォグラフィックの詳細説明
@@ -1105,6 +1110,37 @@ export default function App() {
 
 
   // --- Helper Functions ---
+  /**
+   * 【NEW】AIが生成したデータ内のリテラル改行（\\n）を本物の改行（\n）に置換する
+   * @param {any} data スキャン対象のデータ（オブジェクト、配列、文字列など）
+   * @returns {any} 置換処理後のデータ
+   */
+  const sanitizeNewlines = (data) => {
+    // 1. 文字列の場合: リテラル改行（\\n）を本物の改行（\n）に置換
+    if (typeof data === 'string') {
+      return data.replace(/\\n/g, '\n');
+    }
+
+    // 2. 配列の場合: 各要素に対して再帰的に処理
+    if (Array.isArray(data)) {
+      return data.map(sanitizeNewlines);
+    }
+
+    // 3. オブジェクトの場合: 各キーの値に対して再帰的に処理
+    if (typeof data === 'object' && data !== null) {
+      const newObj = {};
+      for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+          newObj[key] = sanitizeNewlines(data[key]);
+        }
+      }
+      return newObj;
+    }
+
+    // 4. それ以外（数値、nullなど）: そのまま返す
+    return data;
+  };
+  
   const callGeminiApi = async (prompt, modelName, actionName) => {
     if (!apiKey) {
       setMessages(prev => [...prev, { type: 'system', text: 'APIキーが設定されていません。' }]);
@@ -1264,8 +1300,6 @@ export default function App() {
     
     setIsProcessing(false);
     
-    // ▼▼▼ 修正（ここからリファクタリング） ▼▼▼
-    
     if (result && !result.error) {
       let outline;
       try {
@@ -1299,7 +1333,6 @@ export default function App() {
       }
 
       // --- パース成功時 (または修正成功時) の共通処理 ---
-      // (tryブロックからサニタイズ処理以降をすべて外に出す)
 
       // ▼▼▼ サニタイズ処理 (前回実装) ▼▼▼
       const sanitizedOutline = outline.map(slide => {
@@ -1347,8 +1380,13 @@ export default function App() {
       // ▲▲▲ サニタイズ処理ここまで ▲▲▲
 
       
+      // ▼▼▼ 【NEW】リテラル改行コード（\\n）を本物の改行（\n）に置換する処理 ▼▼▼
+      const newlineFixedOutline = sanitizeNewlines(sanitizedOutline);
+      // ▲▲▲ 【NEW】ここまで ▲▲▲
+
+
       // ▼▼▼ ここからルールチェックと強制修正ロジック ▼▼▼
-      let finalOutline = [...sanitizedOutline];
+      let finalOutline = [...newlineFixedOutline]; // ★修正: newlineFixedOutline を使用
 
       // === 1. アジェンダのチェックと修正 ===
       // (「2枚目」がアジェンダかどうかをチェック)
@@ -1417,9 +1455,8 @@ export default function App() {
       setApiErrorStep('outline');
       setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せずエラーが発生しました。' }]);
     }
-    // ▲▲▲ 修正（ここまで） ▲▲▲
   };
-  
+
   const handleOutlineChange = (index, field, value) => {
     const newOutline = [...slideOutline];
     if (field === 'infographic') {
@@ -1689,9 +1726,9 @@ export default function App() {
         '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
         '{title}': currentSlide.title || '',
         // summary はインライン要素として解釈
-        '{summary}': marked.parseInline(currentSlide.summary || ''), 
+        '{summary}': marked.parseInline(currentSlide.summary || '', { breaks: true }), 
         // content (content_with_diagram用) はブロック要素(段落など)として解釈
-        '{content}': marked.parse(currentSlide.summary || ''), 
+        '{content}': marked.parse(currentSlide.summary || '', { breaks: true }), 
         '{infographic_svg}': '',
         '{agenda_items_html}': '',
         '{items_html}': '',
@@ -1702,7 +1739,11 @@ export default function App() {
         await new Promise(resolve => setTimeout(resolve, 800));
         
         const svgPrompt = PROMPTS.generateInfographic(currentSlide.infographic.description);
+        
+        // ▼▼▼ 修正 ▼▼▼
         const infographicSvg = await callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `SVG for Slide ${slideIndex + 1}`);
+        // ▲▲▲ 修正 ▲▲▲
+
         if (!infographicSvg) throw new Error("インフォグラフィックSVGの生成に失敗しました。");
         replacements['{infographic_svg}'] = infographicSvg;
       }
@@ -1713,6 +1754,7 @@ export default function App() {
 
         const iconPromises = currentSlide.points.map(point => {
           const svgPrompt = PROMPTS.generateInfographic(point.icon_description);
+          // (ここは 'gemini-2.5-flash-lite' のまま)
           return callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `Icon SVG for ${point.title}`);
         });
         const iconSvgs = await Promise.all(iconPromises);
@@ -1720,7 +1762,7 @@ export default function App() {
         currentSlide.points.forEach((point, i) => {
             replacements[`{point_${i + 1}_title}`] = point.title || '';
             // ★修正: point.summary を parseInline で変換
-            replacements[`{point_${i + 1}_summary}`] = marked.parseInline(point.summary || '');
+            replacements[`{point_${i + 1}_summary}`] = marked.parseInline(point.summary || '', { breaks: true }); 
             replacements[`{icon_${i + 1}_svg}`] = iconSvgs[i] || ``;
         });
       }
@@ -1731,7 +1773,7 @@ export default function App() {
         // ★修正: <li> の中身を parseInline で変換
         const agendaItems = currentSlide.summary.split('\n').map(item => {
           const cleanItem = item.replace(/^\s*\d+\.\s*/, '');
-          return `<li>${marked.parseInline(cleanItem || '')}</li>`;
+          return `<li>${marked.parseInline(cleanItem || '', { breaks: true })}</li>`; 
         }).join('');
         replacements['{agenda_items_html}'] = agendaItems;
       }
@@ -1747,7 +1789,7 @@ export default function App() {
             <div class="step">
               <div class="step-marker">${i + 1}</div>
               <h2>${item.title || ''}</h2>
-              <p>${marked.parseInline(item.description || '')}</p>
+              <p>${marked.parseInline(item.description || '', { breaks: true })}</p> 
             </div>
           `).join('');
         } else if (currentSlide.template === 'content_basic') {
@@ -1767,7 +1809,7 @@ export default function App() {
             const indentStyle = indentLevel > 0 ? `style="margin-left: ${indentLevel * 2}em;"` : '';
             
             // data-level 属性を付与（アイコン変更に必須）
-            return `<li data-level="${indentLevel}" ${indentStyle}>${marked.parseInline(textContent || '')}</li>`;
+            return `<li data-level="${indentLevel}" ${indentStyle}>${marked.parseInline(textContent || '', { breaks: true })}</li>`; 
           }).join('');
         }
         replacements['{items_html}'] = itemsHtml;
@@ -1778,14 +1820,14 @@ export default function App() {
           replacements['{col_1_title}'] = currentSlide.columns[0].title || '';
           // ★修正: item を parseInline で変換
           replacements['{col_1_items_html}'] = Array.isArray(currentSlide.columns[0].items)
-            ? currentSlide.columns[0].items.map(item => `<li>${marked.parseInline(item || '')}</li>`).join('')
+            ? currentSlide.columns[0].items.map(item => `<li>${marked.parseInline(item || '', { breaks: true })}</li>`).join('') 
             : '';
         }
         if (currentSlide.columns[1]) {
           replacements['{col_2_title}'] = currentSlide.columns[1].title || '';
           // ★修正: item を parseInline で変換
           replacements['{col_2_items_html}'] = Array.isArray(currentSlide.columns[1].items)
-            ? currentSlide.columns[1].items.map(item => `<li>${marked.parseInline(item || '')}</li>`).join('')
+            ? currentSlide.columns[1].items.map(item => `<li>${marked.parseInline(item || '', { breaks: true })}</li>`).join('') 
             : '';
         }
       }
@@ -1797,7 +1839,7 @@ export default function App() {
         let tableHtml = '<thead><tr>';
         // ヘッダー生成 (marked.parseInline を使用)
         if (Array.isArray(currentSlide.table.headers)) {
-          tableHtml += currentSlide.table.headers.map(header => `<th>${marked.parseInline(header || '')}</th>`).join('');
+          tableHtml += currentSlide.table.headers.map(header => `<th>${marked.parseInline(header || '', { breaks: true })}</th>`).join(''); 
         }
         tableHtml += '</tr></thead>';
         
@@ -1806,7 +1848,7 @@ export default function App() {
         if (Array.isArray(currentSlide.table.rows)) {
           tableHtml += currentSlide.table.rows.map(row => {
             let rowHtml = '<tr>';
-            rowHtml += row.map(cell => `<td>${marked.parseInline(cell || '')}</td>`).join('');
+            rowHtml += row.map(cell => `<td>${marked.parseInline(cell || '', { breaks: true })}</td>`).join(''); 
             rowHtml += '</tr>';
             return rowHtml;
           }).join('');
@@ -1840,7 +1882,7 @@ export default function App() {
         setAppStatus(APP_STATUS.SLIDE_GENERATED);
     }
   };
-  
+
   const modifySlide = async (modificationRequest) => {
     setIsProcessing(true);
     setProcessingStatus(`スライド ${currentSlideIndex + 1} を修正中...`);
