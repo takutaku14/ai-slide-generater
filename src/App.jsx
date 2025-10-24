@@ -686,16 +686,23 @@ const UserInput = ({ value, onChange, onSend, disabled }) => (
     </div>
 );
 
-const GenerationControls = ({ onPreview, onApprove, onEditCode, onRegenerate, disabled }) => ( // 1. onRegenerate を props に追加
+const GenerationControls = ({ onPreview, onApprove, onEditCode, onRegenerate, onReturnToOutline, disabled }) => ( 
     <div className="flex justify-end mt-4 space-x-2">
         <button 
-          className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50 hidden" // hiddenクラスを追加
+          className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50 hidden" 
           disabled={disabled} 
           onClick={onPreview}
         >
           プレビュー
         </button>
-        {/* ▼▼▼ 2. 再生成ボタンを追加 ▼▼▼ */}
+        <button 
+          className="px-4 py-2 bg-sky-800 hover:bg-sky-700 text-sm font-medium rounded-md transition-colors disabled:opacity-50" 
+          disabled={disabled} 
+          onClick={onReturnToOutline} 
+          title="現在のプレビューを破棄し、構成案の編集画面に戻ります。"
+        >
+          構成案を修正
+        </button>
         <button 
           className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" 
           disabled={disabled} 
@@ -703,7 +710,6 @@ const GenerationControls = ({ onPreview, onApprove, onEditCode, onRegenerate, di
         >
           再生成
         </button>
-        {/* ▲▲▲ 追加ここまで ▲▲▲ */}
         <button className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" disabled={disabled} onClick={onEditCode}>ソースコードを編集</button>
         <button className="px-4 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors disabled:opacity-50" disabled={disabled} onClick={onApprove}>承認して次へ</button>
     </div>
@@ -821,7 +827,8 @@ const ChatPanel = ({ chatState }) => (
         onPreview={chatState.handlePreview} 
         onApprove={chatState.handleApproveAndNext} 
         onEditCode={chatState.handleOpenCodeEditor} 
-        onRegenerate={chatState.handleRegenerateCurrentSlide} // 3. この行を追加
+        onRegenerate={chatState.handleRegenerateCurrentSlide}
+        onReturnToOutline={chatState.handleReturnToOutline} 
         disabled={chatState.appStatus !== APP_STATUS.SLIDE_GENERATED} 
       />
     </div>
@@ -1052,6 +1059,8 @@ export default function App() {
   const [modificationInput, setModificationInput] = useState('');
   const [modifyModalTarget, setModifyModalTarget] = useState({ index: null, mode: 'single' });
 
+  const [approvedOutlineSnapshot, setApprovedOutlineSnapshot] = useState([]);
+  
   const [thinkingState, setThinkingState] = useState(null);
 
   const chatEndRef = useRef(null);
@@ -1546,10 +1555,64 @@ export default function App() {
     handleCloseModifyModal();
   };
 
+  const handleReturnToOutline = () => {
+    if (window.confirm('現在のスライドプレビューを破棄し、構成案の編集画面に戻ります。\nこれまでに承認したスライドは保持されます。\n\nよろしいですか？')) {
+      setCurrentSlideHtml(''); // 現在のプレビューを破棄
+      setAppStatus(APP_STATUS.OUTLINE_CREATED); // 構成案編集モードに戻る
+      setMessages(prev => [...prev, { type: 'system', text: "構成案の編集に戻りました。編集完了後、「構成案を承認し、スライド生成を開始する」ボタンを押してください。" }]);
+    }
+  };
+
   const handleStartGeneration = () => {
-    if (slideOutline.length === 0) return;
-    setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text: `構成案承認済。\n**ステップ2: スライド生成**\n全${slideOutline.length}枚のスライド生成を開始します。` }]);
-    generateSlide(0);
+    const newOutline = slideOutline; // ユーザーが編集した後の最新の構成案
+    const currentGeneratedCount = generatedSlides.length; // 現在承認済みのスライド数
+
+    let restartIndex = currentGeneratedCount; // デフォルトは「続きから」
+
+    // --- 差分検出ロジック ---
+    // 承認済みのスライド（0 〜 currentGeneratedCount-1）に変更がないかチェック
+    for (let i = 0; i < currentGeneratedCount; i++) {
+      // スナップショット（変更前）と最新の構成案（変更後）をJSON文字列で比較
+      // (approvedOutlineSnapshot[i] が存在しないケースも考慮)
+      const oldSlideJSON = approvedOutlineSnapshot[i] ? JSON.stringify(approvedOutlineSnapshot[i]) : null;
+      const newSlideJSON = newOutline[i] ? JSON.stringify(newOutline[i]) : null;
+
+      if (oldSlideJSON !== newSlideJSON) {
+        // 変更を検出！
+        restartIndex = i; // 最も早い変更箇所を記録
+        break; // ループを抜ける
+      }
+    }
+
+    // --- 巻き戻し処理 ---
+    if (restartIndex < currentGeneratedCount) {
+      // 過去のスライドに変更があった場合
+      setMessages(prev => [...prev, { type: 'system', text: `[INFO] スライド ${restartIndex + 1} の構成案に変更が検出されたため、${restartIndex + 1} 枚目以降のスライドを再生成します。` }]);
+      
+      // 承認済みHTML配列を、変更箇所の直前まで巻き戻す
+      setGeneratedSlides(prevSlides => prevSlides.slice(0, restartIndex));
+    }
+    
+    // --- スナップショットの更新と生成再開 ---
+    
+    // 1. スナップショットを「最新の構成案」で丸ごと更新する
+    //    (過去の変更も、未来の変更もすべてこれが「正」となる)
+    setApprovedOutlineSnapshot([...newOutline]);
+    
+    // 2. Stateを更新
+    setCurrentSlideIndex(restartIndex);
+    // setAppStatus(APP_STATUS.GENERATING_SLIDES); // ← generateSlide内で設定されるため不要
+
+    // 3. 生成を再開
+    if (restartIndex < newOutline.length) {
+      // 未生成のスライドがまだある場合
+      setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text: `構成案承認済。\n**ステップ2: スライド生成**\n（スライド ${restartIndex + 1} から）生成を再開します。`}]);
+      generateSlide(restartIndex);
+    } else {
+      // 編集の結果、全スライドが承認済みになった（例：末尾を削除した）場合
+      setAppStatus(APP_STATUS.ALL_SLIDES_GENERATED);
+      setMessages(prev => [...prev, { type: 'system', text: "構成案の編集が完了し、全てのスライドが承認済みです。\nZIPファイルをダウンロードできます。"}]);
+    }
   };
 
   const generateSlide = async (slideIndex) => {
@@ -1926,9 +1989,10 @@ export default function App() {
               currentSlideIndex, thinkingState,
               handlePreview, 
               handleRegenerateCurrentSlide, 
+              handleReturnToOutline, 
               handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
           }} />
-        </div> {/* ▲▲▲ ラッパーdivの閉じタグを追加 ▲▲▲ */}
+        </div> 
       </main>
 
       <ApiKeyModal isOpen={isApiKeyModalOpen} tempApiKey={tempApiKey} setTempApiKey={setTempApiKey} handleSave={handleApiKeySave} />
