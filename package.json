@@ -14,8 +14,10 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "jszip": "^3.10.1",
+    "katex": "^0.16.25",
     "lucide-react": "^0.545.0",
     "marked": "^16.4.1",
+    "marked-katex-extension": "^5.1.5",
     "pdfjs-dist": "^5.4.296",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

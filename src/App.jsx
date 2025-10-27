@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import JSZip from 'jszip';
 import { THEMES } from './templates'; 
 import { marked } from 'marked'; 
+import markedKatex from 'marked-katex-extension';
 
 // pdf.js のワーカーを設定
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -39,7 +40,7 @@ ${text}`,
 
   createOutline: (markdown, includeAgenda, useSectionHeaders) => {
     const agendaCondition = includeAgenda
-      ? '- 2枚目は必ず"アジェンダ"ページとし、`template`は`agenda`を選択してください。`summary`には3枚目以降のタイトルを改行区切りでリストアップしてください。'
+      ? `- 2枚目は必ず"アジェンダ"ページとし、\`template\`は\`agenda\`を選択してください。\`summary\`には3枚目以降のタイトルを改行区切りでリストアップしてください。\n- **【アジェンダの分割ルール】**: アジェンダの項目（\`summary\`にリストアップする3枚目以降のタイトル）が**6個を超えた**場合、\`template\`が\`agenda\`のスライドを**複数枚に分割**してください。\n- 1枚目のタイトルは『**アジェンダ (1/2)**』、2枚目は『**アジェンダ (2/2)**』のように、必ず連番を付与してください。\n- 各アジェンダスライドには、最大6項目までのリストを配置してください。`
       : '- **アジェンダページは絶対に作成しないでください。**';
     const sectionHeaderCondition = useSectionHeaders
       ? '- Markdownの主要な見出し（章やセクション）の前に、`template`が`section_header`のスライドを自動で挿入してください。'
@@ -126,6 +127,11 @@ ${text}`,
 - **【強調ルール】**: \`summary\`, \`items\`, \`points\`, \`columns\`, \`table\` の各テキストを生成する際、**プレゼンテーションで特に重要となるキーワード、専門用語、またはキーとなる数値**は、必ずMarkdownの太字記法（\`**キーワード**\`）で囲んで積極的に強調してください。
 - **【用語解説ルール】**: もし \`用語：その解説\` のような形式で記述する場合は、必ず \`**用語**：その解説\` のように、コロン（：）の前の用語部分を太字にしてください。
 
+- **【数式表示ルール】**: もし内容に数式、変数、または計算式（例： \`y = ax + b\` や \`費用 - 収益\`）が含まれる場合は、**必ず KaTeX 形式**で記述してください。
+  - **インライン数式**: 文中の数式は、シングルダラー（\`$\`）で囲んでください。（例: \`これは $y = ax + b$ の例です。\`）
+  - **ブロック数式**: 独立した行の数式は、ダブルダラー（\`$$\`）で囲んでください。（例: \`$$ \sum_{i=1}^{n} x_i $$ \`）
+  - **【最重要】日本語の変数名**: 数式内で日本語の用語（例：\`課税譲渡所得金額\`）を使用する場合は、必ず \`\text{...}\` コマンドで囲んでください。（例: \`$$ \text{課税譲渡所得金額} = \text{収入金額} - (\text{取得費} + \text{譲渡費用}) - \text{特別控除額} $$ \`）
+
 - **上記の専用テンプレート（table_basic, comparison, three_points など）のいずれにも当てはまらない**、単純な箇条書き（番号付き/なし）が中心のスライドを作成する場合に**のみ**、\`content_basic\` テンプレートを使用してください。
   - \`content_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`items\`キー** で「箇条書きの各項目（文字列）」の配列を生成してください。
   - **【最重要】\`items\` の各項目（文字列）の先頭には、ハイフン（-）やアスタリスク（*）、数字（1.）などのリストマーカーを**絶対に**含めないでください。（CSSで自動付与されます）
@@ -147,8 +153,15 @@ ${text}`,
 - \`three_points\` テンプレートを使用する場合、
   - **\`summary\`キーは絶対に空（""）**にしてください。
   - 代わりに **\`points\`キー** で、**必ず3要素のオブジェクト配列**を生成してください。
-  - 各オブジェクトには **\`title\`** (文字列), **\`summary\`** (文字列), **\`icon_description\`** (文字列、AIがSVGを生成するための指示) の3つのキーを**必ず含めてください**。
-  - （例: \`{"title": "ポイント1", "summary": "ポイント1の要約...", "icon_description": "チェックマークのアイコン"}\`）
+  - 各オブジェクトには **\`title\`** (文字列), **\`summary\`** (文字列), **\`icon_description\`** (文字列) の3つのキーを**必ず含めてください**。
+  
+  - **【icon_description の超厳格ルール】**: \`icon_description\` キーには、**Lucide (lucide.dev) のアイコン名**（例: "check-circle", "braces", "database", "shield-check", "brain-cog"）を**単一の文字列**で指定してください。
+  - **【禁止事項】**: **絶対に、説明文（例: "APIのアイコン"、"RAGの図"）や、日本語、スペースを含む文字列を指定しないでください。**
+  - **【あなたの思考プロセス】**:
+    1.  ポイントのタイトル（例: "API"）を理解します。
+    2.  Lucideライブラリから最も関連性の高いアイコン名（例: "braces" や "code"）を1つだけ選びます。
+    3.  その名前（"braces"）だけを \`icon_description\` キーに設定します。
+  - （例: \`{"title": "API", "summary": "...", "icon_description": "braces"}\`）
 - **【▲▲▲ 修正点ここまで ▲▲▲】**
 
 - **【▼▼▼ 修正点 ▼▼▼】**
@@ -183,9 +196,9 @@ ${sectionHeaderCondition}
     "summary": "", 
     "template": "three_points", 
     "points": [ 
-      { "title": "プランA", "summary": "プランAの簡潔な説明...", "icon_description": "シンプルな「A」の文字のアイコン" }, 
-      { "title": "プランB", "summary": "プランBの簡潔な説明...", "icon_description": "シンプルな「B」の文字のアイコン" }, 
-      { "title": "プランC", "summary": "プランCの簡潔な説明...", "icon_description": "シンプルな「C」の文字のアイコン" } 
+      { "title": "プランA", "summary": "プランAの簡潔な説明...", "icon_description": "braces" }, 
+      { "title": "プランB", "summary": "プランBの簡潔な説明...", "icon_description": "database" }, 
+      { "title": "プランC", "summary": "プランCの簡潔な説明...", "icon_description": "shield-check" }
     ] 
   },
   
@@ -332,6 +345,43 @@ ${instruction}
 ### 現在のスライド(JSON)
 ${currentSlideJson}
 `
+,
+
+findIconName: (description) => `### 指示
+あなたは、与えられた「概念」や「説明文」を、オープンソースの「Lucide (lucide.dev)」アイコンライブラリの**単一のアイコン名**にマッピングする専門家です。
+
+### 厳格なルール
+- **最重要**: あなたの応答は、Lucideのアイコン名（例: "braces", "shield-check", "database"）**そのもの**でなければなりません。
+- 解説、前置き、引用符、JSON形式などは**一切不要**です。
+- 関連するアイコンが複数ある場合でも、最も代表的だと思われるものを**1つだけ**選んでください。
+- 存在しないアイコン名は返さないでください。
+
+### 例
+- 入力: "API、接続、歯車"
+- 出力: braces
+- 入力: "セキュリティ、盾、認証"
+- 出力: shield-check
+- 入力: "AI、チャットボット、根拠"
+- 出力: brain-cog
+- 入力: "存在しない概念"
+- 出力: circle
+
+### 変換対象の説明文
+${description}`
+,
+  findIconNameRetry: (concept, wrongName) => `### 指示
+あなたは、与えられた「概念」を「Lucide (lucide.dev)」の**正しいアイコン名**にマッピングする専門家です。
+
+### 前回の失敗
+前回のタスクで、あなたは「${concept}」という概念に対して「${wrongName}」という名前を返しましたが、そのアイコン名は**存在しません (404エラー)**でした。
+
+### 厳格なルール
+- **最重要**: 「${wrongName}」とは**異なる、別の正しいLucideアイコン名**を1つだけ返してください。
+- 解説、前置き、引用符、JSON形式などは**一切不要**です。
+- どうしても適切な名前が見つからない場合は "circle" と返してください。
+
+### 変換対象の概念
+${concept}`
 
 };
 
@@ -400,12 +450,23 @@ const MessageList = ({ messages }) => (
   </div>
 );
 
-const MarkdownEditor = ({ markdown, setMarkdown, onApprove }) => (
+const MarkdownEditor = ({ markdown, setMarkdown, onApprove, onRegenerate }) => ( // ★ onRegenerate を追加
   <div className="bg-black/20 p-4 rounded-lg">
     <p className="text-sm text-gray-300 mb-2">以下に構造化されたテキスト案を表示します。内容を確認し、必要であれば直接編集してください。</p>
     <textarea value={markdown} onChange={(e) => setMarkdown(e.target.value)} className="w-full h-64 bg-gray-900/50 border border-white/20 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow font-mono" />
-    <div className="flex justify-end mt-4">
-      <button onClick={onApprove} className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors">内容を承認して次へ進む</button>
+    <div className="flex justify-between items-center mt-4"> {/* ★ justify-end から justify-between に変更 */}
+      <button 
+        onClick={onRegenerate} 
+        className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 text-sm font-medium rounded-md transition-colors"
+      >
+        AIで再生成
+      </button>
+      <button 
+        onClick={onApprove} 
+        className="px-6 py-2 bg-green-600 hover:bg-green-500 text-sm font-medium rounded-md transition-colors"
+      >
+        内容を承認して次へ進む
+      </button>
     </div>
   </div>
 );
@@ -812,7 +873,12 @@ const ChatPanel = ({ chatState }) => (
         </div>
       )}
 
-      {chatState.appStatus === APP_STATUS.STRUCTURED && <MarkdownEditor markdown={chatState.structuredMarkdown} setMarkdown={chatState.setStructuredMarkdown} onApprove={chatState.handleMarkdownApproval} />}
+      {chatState.appStatus === APP_STATUS.STRUCTURED && <MarkdownEditor 
+        markdown={chatState.structuredMarkdown} 
+        setMarkdown={chatState.setStructuredMarkdown} 
+        onApprove={chatState.handleMarkdownApproval} 
+        onRegenerate={chatState.handleRegenerateStructure} /* ★追加 */
+      />}
       {chatState.appStatus === APP_STATUS.SELECTING_THEME && <ThemeSelector 
         selectedTheme={chatState.selectedTheme} 
         selectedDesign={chatState.design} 
@@ -1063,6 +1129,7 @@ export default function App() {
   const [userInput, setUserInput] = useState('');
 
   const [fileName, setFileName] = useState('');
+  const [originalExtractedText, setOriginalExtractedText] = useState(''); 
   const [structuredMarkdown, setStructuredMarkdown] = useState('');
   const [slideOutline, setSlideOutline] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1102,6 +1169,16 @@ export default function App() {
       setIsApiKeyModalOpen(true);
       setMessages([{ type: 'system', text: 'まず、Gemini APIキーを設定してください。' }]);
     }
+
+    // KaTeX 拡張機能を marked に登録
+    try {
+      marked.use(markedKatex({
+        throwOnError: false // LaTeXのパースエラー時にコンソールに警告を出すが、アプリはクラッシュさせない
+      }));
+    } catch (e) {
+      console.error("Failed to load marked-katex-extension", e);
+    }
+
   }, []);
 
   useEffect(() => {
@@ -1164,6 +1241,107 @@ export default function App() {
       console.error(`[FATAL] API Error during ${actionName}:`, error);
       // ▼▼▼ 修正点: UIへのメッセージ表示を削除し、エラー内容を呼び出し元に返す ▼▼▼
       return { error: `APIエラーが発生しました: ${error.message}` }; 
+    }
+  };
+
+  /**
+   * 【NEW】アイコン指示を処理し、SVG文字列を取得する
+   * - 英語名でも404なら再翻訳を試みる
+   * @param {object} point - スライドのポイントオブジェクト (title, summary, icon_description を含む)
+   * @returns {Promise<string>} SVG文字列
+   */
+  const getIconSvg = async (point) => {
+    // Lucideアイコン名（半角英小文字、数字、ハイフンのみ）の正規表現
+    const isValidIconName = /^[a-z0-9-]+$/;
+    let iconName = (point.icon_description || '').trim();
+    
+    // AIが再翻訳を試みるための「概念」を定義
+    // (指示が日本語の場合はそれ自体を、英語の場合はスライドのタイトルや要約を概念とする)
+    let conceptForRetry = iconName; 
+
+    let svgContent = null; // SVGコンテンツを保持する変数
+
+    // --- 1. 翻訳 (必要な場合) ---
+    if (!isValidIconName.test(iconName)) {
+      // 英語名でない（＝日本語指示）の場合
+      console.warn(`[WARN] Invalid icon name: "${iconName}". Translating via AI...`);
+      const prompt = PROMPTS.findIconName(iconName);
+      const translatedNameResult = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', 'Icon Translation');
+
+      if (translatedNameResult && !translatedNameResult.error) {
+        iconName = translatedNameResult.trim().toLowerCase();
+        console.log(`[INFO] AI translation: "${point.icon_description}" -> "${iconName}"`);
+      } else {
+        console.error(`[ERROR] Icon translation failed for: "${point.icon_description}"`);
+        iconName = 'circle'; // 翻訳自体が失敗したら 'circle' に
+      }
+    } else {
+      // 英語名が最初から指定されていた場合
+      // 再翻訳の際は、この英語名ではなく「スライドのタイトル」を概念として使う
+      conceptForRetry = `${point.title}: ${point.summary}`;
+      console.log(`[INFO] Icon name is valid: "${iconName}". Attempting fetch...`);
+    }
+
+    // --- 2. 最初のフェッチ試行 ---
+    // (日本語から翻訳された名前、または最初から英語だった名前でフェッチ)
+    svgContent = await fetchIconSvg(iconName);
+
+    // --- 3. 再翻訳ロジック (フェッチ失敗時 = 404) ---
+    // (英語ハルシネーションでも、日本語からの翻訳ミスでも、ここで捕捉される)
+    if (svgContent === null) {
+      console.warn(`[WARN] Retrying translation. (Failed attempt: "${iconName}")`);
+      
+      // 失敗した名前をAIに伝え、再翻訳を試みる
+      // (conceptForRetry には「日本語指示」または「スライドのタイトル」が入っている)
+      const retryPrompt = PROMPTS.findIconNameRetry(conceptForRetry, iconName);
+      const retryNameResult = await callGeminiApi(retryPrompt, 'gemini-2.5-flash-lite', 'Icon Translation Retry');
+      
+      let newIconName = 'circle'; // デフォルトは 'circle'
+      if (retryNameResult && !retryNameResult.error) {
+        newIconName = retryNameResult.trim().toLowerCase();
+        console.log(`[INFO] AI retry translation: "${conceptForRetry}" -> "${newIconName}"`);
+      } else {
+        console.error(`[ERROR] Icon retry translation failed.`);
+      }
+
+      // 再度フェッチ (これが最後の試行)
+      svgContent = await fetchIconSvg(newIconName);
+    }
+
+    // --- 4. 最終フォールバック ---
+    if (svgContent === null) {
+      console.log(`[INFO] Final fallback: fetching 'circle'.`);
+      svgContent = await fetchIconSvg('circle');
+    }
+
+    return svgContent || ''; // 最終的に 'circle' すら失敗したら空文字
+  };
+
+  /**
+   * Lucide アイコンを CDN から SVG 文字列として取得する
+   * @param {string} iconName - Lucide のアイコン名 (例: 'check-circle')
+   * @returns {Promise<string>} SVG文字列 (失敗時は空文字列)
+   */
+  const fetchIconSvg = async (iconName) => {
+    // Lucideアイコン名（半角英小文字、数字、ハイフンのみ）の正規表現
+    const isValidIconName = /^[a-z0-9-]+$/; 
+
+    // AIが不正な値（日本語、スペース、空文字など）を指定した場合のフォールバック
+    if (!iconName || !isValidIconName.test(iconName)) {
+        console.warn(`[WARN] Invalid icon name received: "${iconName}". Using default 'circle'.`);
+        iconName = 'circle'; // 強制的に 'circle' にする
+    }
+    
+    try {
+      const response = await fetch(`https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/${iconName}.svg`);
+      if (!response.ok) {
+        console.warn(`[WARN] Failed to fetch icon: ${iconName}. Server responded with ${response.status}.`);
+        return null; // "circle" をフェッチせず、null を返して失敗を通知
+      }
+      return await response.text();
+    } catch (error) {
+      console.error(`[ERROR] Fetching icon ${iconName}:`, error);
+      return null; // ネットワークエラー時も null を返す
     }
   };
 
@@ -1240,6 +1418,8 @@ export default function App() {
     setProcessingStatus('テキストを構造化中...');
     setApiErrorStep(null); // 再試行の前にエラー状態をリセット
     
+    setOriginalExtractedText(text); // ★追加: 構造化前の生テキストを保存
+    
     const result = await callGeminiApi(PROMPTS.structureText(text), 'gemini-2.5-flash-lite', 'テキスト構造化');
     
     setIsProcessing(false);
@@ -1250,6 +1430,39 @@ export default function App() {
     } else {
       // エラーハンドリング
       setApiErrorStep('structure');
+      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せぬエラーが発生しました。' }]);
+    }
+  };
+
+  const handleRegenerateStructure = async () => {
+    if (!originalExtractedText) {
+      setMessages(prev => [...prev, { type: 'system', text: 'エラー: 元のテキストが見つかりません。' }]);
+      return;
+    }
+    
+    if (!window.confirm('現在の編集内容は破棄されますが、テキストの構造化をAIに再実行させますか？')) {
+      return;
+    }
+
+    setMessages(prev => [...prev, { type: 'system', text: 'テキストの再構造化を実行します...' }]);
+    setAppStatus(APP_STATUS.STRUCTURING);
+    setIsProcessing(true); // ★ FileUploadPanel をローディング表示にする
+    setProcessingStatus('テキストを再構造化中...');
+    setApiErrorStep(null);
+
+    // ★ originalExtractedText を使って再度APIを叩く
+    const result = await callGeminiApi(PROMPTS.structureText(originalExtractedText), 'gemini-2.5-flash-lite', 'テキスト再構造化');
+    
+    setIsProcessing(false); // ★ローディング解除
+    
+    if (result && !result.error) {
+      setStructuredMarkdown(result);
+      setAppStatus(APP_STATUS.STRUCTURED); // ★ MarkdownEditor が表示されるステータスに戻す
+      setMessages(prev => [...prev, { type: 'system', text: 'テキストの再構造化が完了しました。' }]);
+    } else {
+      // エラーハンドリング
+      setApiErrorStep('structure');
+      setAppStatus(APP_STATUS.STRUCTURED); // ★ エラー時も編集画面には戻す
       setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せぬエラーが発生しました。' }]);
     }
   };
@@ -1389,35 +1602,90 @@ export default function App() {
       let finalOutline = [...newlineFixedOutline]; // ★修正: newlineFixedOutline を使用
 
       // === 1. アジェンダのチェックと修正 ===
-      // (「2枚目」がアジェンダかどうかをチェック)
-      const hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda';
+      const agendaMaxItems = 6;
+      let hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda';
 
       if (includeAgenda) {
-          // "はい" を選んだのに、無い場合
-          if (!hasAgenda) {
-              // 3枚目以降（インデックス1以降）のタイトルを収集して目次を作成
-              const agendaItems = finalOutline
-                  .slice(1) // 1枚目(title_slide)を除外
-                  .map(slide => slide.title || '')
-                  .filter(title => title.length > 0)
-                  .join('\n'); // 改行で結合
+        
+        // ▼▼▼ 【NEW】アジェンダ分割ロジック ▼▼▼
+        if (hasAgenda) {
+          // 2枚目がアジェンダの場合、項目数チェックと分割を行う
+          const targetAgenda = finalOutline[1];
+          const items = (targetAgenda.summary || '').split('\n').filter(item => item.trim().length > 0);
 
-              const newAgendaSlide = {
+          if (items.length > agendaMaxItems) {
+            // 1. 強制分割処理
+            const totalParts = Math.ceil(items.length / agendaMaxItems);
+            const newAgendaSlides = [];
+            
+            // AIがタイトルに(1/n)などを付けている可能性を考慮し、元のタイトルをベースにする
+            const baseTitle = (targetAgenda.title || 'アジェンダ').replace(/\s*\(\d+\/\d+\)\s*$/, ''); // (1/2)などを削除
+
+            for (let i = 0; i < totalParts; i++) {
+              const partItems = items.slice(i * agendaMaxItems, (i + 1) * agendaMaxItems);
+              newAgendaSlides.push({
+                ...targetAgenda, // 元スライドの情報をコピー (templateなど)
+                title: `${baseTitle} (${i + 1}/${totalParts})`,
+                summary: partItems.join('\n'),
+                items: null, // アジェンダはsummaryのみ使用
+                points: null,
+                columns: null,
+                table: null,
+              });
+            }
+
+            // 2. 元のアジェンダスライド(outline[1])を、分割したスライド群で置き換え
+            finalOutline.splice(1, 1, ...newAgendaSlides);
+            
+            // 3. ユーザーに通知
+            setMessages(prev => [...prev, { type: 'system', text: "【自動修正】アジェンダの項目数が多いため、スライドを自動的に分割しました。" }]);
+          }
+        }
+        // ▲▲▲ アジェンダ分割ロジックここまで ▲▲▲
+
+        // "はい" を選んだのに、無い場合 (分割チェック後も無い場合)
+        // ※分割ロジックが実行された場合、hasAgendaはtrueなのでここは実行されない
+        if (!hasAgenda) { 
+            // 3枚目以降（インデックス1以降）のタイトルを収集して目次を作成
+            const agendaItems = finalOutline
+                .slice(1) // 1枚目(title_slide)を除外
+                .map(slide => slide.title || '')
+                .filter(title => title.length > 0);
+
+            // ★修正: 項目がない場合も考慮
+            const newAgendaItems = (agendaItems.length > 0 ? agendaItems : ['（目次がありません）']);
+            const totalParts = Math.ceil(newAgendaItems.length / agendaMaxItems);
+            const newAgendaSlides = [];
+
+            if (newAgendaItems.length === 0 || (newAgendaItems.length === 1 && newAgendaItems[0] === '（目次がありません）')) {
+              // 項目がない場合は、空のアジェンダを1枚だけ作る
+               newAgendaSlides.push({
                   title: "アジェンダ",
-                  summary: agendaItems || '（目次がありません）', // フォールバック
+                  summary: '（目次がありません）',
                   template: "agenda",
                   items: null, points: null, columns: null, table: null,
-              };
-              
-              // 2枚目（インデックス 1）に強制挿入
-              finalOutline.splice(1, 0, newAgendaSlide);
-              
-              // ユーザーへの通知（UI上には表示せず、内部的な状態変更のみ）
-              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
-          }
+              });
+            } else {
+              // 項目がある場合は分割する
+              for (let i = 0; i < totalParts; i++) {
+                const partItems = newAgendaItems.slice(i * agendaMaxItems, (i + 1) * agendaMaxItems);
+                newAgendaSlides.push({
+                  title: `アジェンダ${totalParts > 1 ? ` (${i + 1}/${totalParts})` : ''}`, // 1枚の時は(1/1)を付けない
+                  summary: partItems.join('\n'),
+                  template: "agenda",
+                  items: null, points: null, columns: null, table: null,
+                });
+              }
+            }
+
+            // 2枚目（インデックス 1）に強制挿入
+            finalOutline.splice(1, 0, ...newAgendaSlides);
+            
+            setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
+        }
       } else {
           // "いいえ" を選んだのに、有る場合
-          if (hasAgenda) {
+          if (hasAgenda) { // 2枚目がアジェンダだったら、という元のロジック
               // 2枚目のアジェンダを削除
               finalOutline.splice(1, 1);
               setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。" }]);
@@ -1752,11 +2020,11 @@ export default function App() {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
+        // 引数を icon_description から point オブジェクト全体に変更
         const iconPromises = currentSlide.points.map(point => {
-          const svgPrompt = PROMPTS.generateInfographic(point.icon_description);
-          // (ここは 'gemini-2.5-flash-lite' のまま)
-          return callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `Icon SVG for ${point.title}`);
+          return getIconSvg(point); 
         });
+
         const iconSvgs = await Promise.all(iconPromises);
         
         currentSlide.points.forEach((point, i) => {
@@ -2077,6 +2345,7 @@ export default function App() {
               messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus,
               apiErrorStep, handleRetry,
               structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, 
+              handleRegenerateStructure, // ★追加
               selectedTheme, design, handleThemeSelection, handleDesignSelection, handleThemeApproval,
               handleAgendaChoice, handleSectionHeaderChoice,
 

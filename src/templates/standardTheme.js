@@ -311,6 +311,10 @@ export const standardTemplates = {
             box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* 薄い影 */
         }
         .point-icon { height: 120px; width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; color: var(--accent-color); }
+        .point-icon svg {
+            width: 80px;  /* SVGの幅を80pxに指定 */
+            height: 80px; /* SVGの高さを80pxに指定 */
+        }
         h2 { font-size: 26px; color: var(--text-color); margin: 0 0 15px; font-weight: 700; }
         p { font-size: 18px; line-height: 1.7; color: var(--sub-text-color); margin: 0; white-space: pre-wrap; font-weight: 400; }
     </style>
