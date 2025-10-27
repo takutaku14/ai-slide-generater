@@ -225,7 +225,12 @@ ${sectionHeaderCondition}
 ${markdown}`;
   },
 
-  generateInfographic: (description) => `### あなたの役割
+  generateInfographic: (description, theme) => { // ★ theme を引数に追加
+    const themeInstructions = theme === 'light'
+      ? '・背景は白（#FFFFFF）です。図形や線には濃い色（例: #1E293B, #0284c7）を使用してください。'
+      : '・背景は濃いグレー（#1e293b）です。図形や線には明るい色（例: #e2e8f0, #38bdf8）を使用してください。';
+  
+    return `### あなたの役割
 あなたは、与えられた指示に基づき、情報を視覚的に表現するためのSVG（スケーラブル・ベクター・グラフィックス）コードを生成する専門家です。
 
 ### 指示
@@ -240,10 +245,13 @@ ${markdown}`;
 - \`viewBox="0 0 100 100"\` のように、viewBox属性を必ず指定してください（値は内容に応じて調整可）。
 - **絶対に \`width\` や \`height\` にピクセル値（例: \`width="500px"\`）を指定しないでください。**
 
-- SVG内の配色は、モダンで分かりやすいカラーパレット（例：#38bdf8, #818cf8, #e2e8f0 など）を使用してください。背景が暗いことを想定してください。
+- **【配色ルールの厳格なルール】**:
+${themeInstructions}
+- **絶対に、SVG自体に背景色（例: \`<rect width="100%" height="100%" fill="...">\`）は含めないでください。** スライドの背景を透過させる必要があります。
 
 ### インフォグラフィックの詳細説明
-${description}`,
+${description}`;
+  },
 
   modifySlide: (modificationRequest, currentSlideHtml) => `### あなたの役割
 あなたは、ユーザーの指示を100%忠実に、かつ正確にHTMLコードへ反映させる精密なコーディングアシスタントです。
@@ -1245,6 +1253,48 @@ export default function App() {
   };
 
   /**
+   * AIが生成したSVG文字列をサニタイズ（自動修正）する
+   * - width/height を 100% に強制
+   * - viewBox がなければデフォルトを追加
+   * - 誤った背景色を透過に修正
+   */
+  const sanitizeSvg = (svgString) => {
+    if (!svgString || typeof svgString !== 'string' || !svgString.startsWith('<svg')) {
+      console.warn("[WARN] Invalid SVG string received:", svgString);
+      return svgString; // SVGでないか、空の場合はそのまま返す
+    }
+
+    let sanitized = svgString;
+
+    // 1. 既存の width/height 属性を削除 (ピクセル指定などを防ぐため)
+    // <svg ... width="..." ...> -> <svg ... ...>
+    sanitized = sanitized.replace(/<svg([^>]*?)width=".*?"/g, '<svg$1');
+    sanitized = sanitized.replace(/<svg([^>]*?)height=".*?"/g, '<svg$1');
+
+    // 2. viewBox が存在するかチェック
+    const hasViewBox = /<svg([^>]*?)viewBox=".*?"/g.test(sanitized);
+
+    if (hasViewBox) {
+      // viewBox がある場合: width/height="100%" のみ挿入
+      sanitized = sanitized.replace('<svg', '<svg width="100%" height="100%"');
+    } else {
+      // viewBox がない場合: width/height="100%" と デフォルトの viewBox を挿入
+      console.warn('[WARN] SVG missing viewBox. Adding default "0 0 100 100".');
+      sanitized = sanitized.replace('<svg', '<svg width="100%" height="100%" viewBox="0 0 100 100"');
+    }
+
+    // 3. (保険) AIが誤って <svg> タグ自体に背景色を指定した場合、透過させる
+    sanitized = sanitized.replace(/<svg([^>]*?)fill="(#fff|#ffffff|#000|#000000)"/gi, '<svg$1fill="transparent"');
+    
+    // 4. (保険) AIが誤って <rect> で背景色を指定した場合、透過させる
+    sanitized = sanitized.replace(/<rect([^>]*?)fill="(#fff|#ffffff|#000|#000000)"([^>]*?)width="100%"([^>]*?)height="100%"/gi, 
+      '<rect$1fill="transparent"$3width="100%"$4height="100%"'
+    );
+
+    return sanitized;
+  };
+
+  /**
    * 【NEW】アイコン指示を処理し、SVG文字列を取得する
    * - 英語名でも404なら再翻訳を試みる
    * @param {object} point - スライドのポイントオブジェクト (title, summary, icon_description を含む)
@@ -2006,16 +2056,27 @@ export default function App() {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
         
-        const svgPrompt = PROMPTS.generateInfographic(currentSlide.infographic.description);
+        // ★ 修正: PROMPTS.generateInfographic に design (dark/light) を渡す
+        const svgPrompt = PROMPTS.generateInfographic(
+          currentSlide.infographic.description,
+          design // 'dark' または 'light'
+        );
         
-        // ▼▼▼ 修正 ▼▼▼
-        const infographicSvg = await callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `SVG for Slide ${slideIndex + 1}`);
-        // ▲▲▲ 修正 ▲▲▲
+        const infographicSvgResult = await callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `SVG for Slide ${slideIndex + 1}`);
 
-        if (!infographicSvg) throw new Error("インフォグラフィックSVGの生成に失敗しました。");
-        replacements['{infographic_svg}'] = infographicSvg;
+        // ▼▼▼ 修正: エラーチェックとサニタイズ処理 ▼▼▼
+        if (!infographicSvgResult || infographicSvgResult.error) {
+          const errorMessage = infographicSvgResult?.error || "インフォグラフィックSVGの生成に失敗しました。";
+          console.error(errorMessage);
+          // 既存のcatchブロック(line 1228)に処理を移譲するためエラーをスロー
+          throw new Error(errorMessage); 
+        }
+        
+        // 成功した場合: AIの応答結果をサニタイズ（自動修正）する
+        const sanitizedSvg = sanitizeSvg(infographicSvgResult);
+        replacements['{infographic_svg}'] = sanitizedSvg;
       }
-      
+
       if (['three_points'].includes(currentSlide.template) && Array.isArray(currentSlide.points)) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
