@@ -393,6 +393,26 @@ ${concept}`
 
 };
 
+/** 各API待機ステップの「思考プロセス」を定義 */
+const STRUCTURING_STEPS = [
+  { key: 'cleaning', text: 'テキストをクリーンアップ中... (例: 「ドキュ メント」→「ドキュメント」)' },
+  { key: 'analyzing', text: 'ドキュメントの論理構造を解析中... (見出し、段落の識別)' },
+  { key: 'formatting', text: 'Markdown形式に再構成中...' }
+];
+
+const OUTLINE_STEPS = [
+  { key: 'analyzing_doc', text: 'Markdownドキュメント全体を分析中...' },
+  { key: 'selecting_templates', text: '各セクションに最適なテンプレートを選定中... (例: 表、比較、図解)' },
+  { key: 'creating_title_agenda', text: 'タイトルとアジェンダページを作成中...' },
+  { key: 'generating_content', text: '各スライドの内容（箇条書き、要約）を生成中...' },
+  { key: 'formatting_json', text: '最終的な構成案（JSON）を組み立て中...' }
+];
+
+const SLIDE_GENERATION_STEPS = [
+  { key: 'analyzing', text: 'スライドの内容を分析中...' },
+  { key: 'designing', text: 'インフォグラフィック/レイアウトをデザイン中...' },
+  { key: 'coding', text: 'HTMLコードを組み立て中...' }
+];
 
 // --- アイコンコンポーネント ---
 const SettingsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 hover:text-white transition-colors"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>);
@@ -409,17 +429,35 @@ const AppHeader = ({ onSettingsClick }) => (
   </header>
 );
 
-const FileUploadPanel = ({ isProcessing, processingStatus, fileName, handleDragOver, handleDrop, onFileSelect, appStatus }) => (
+const FileUploadPanel = ({ isProcessing, processingStatus, fileName, handleDragOver, handleDrop, onFileSelect, appStatus, thinkingState, totalWaitTime }) => (
   <div
     className={`w-full h-full bg-white/5 rounded-xl flex flex-col items-center justify-center p-6 border-2 border-dashed ${isProcessing ? 'border-indigo-500' : 'border-white/20 hover:border-indigo-500'} transition-colors`}
     onDragOver={handleDragOver}
     onDrop={handleDrop}
   >
     {isProcessing ? (
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
-        <p className="mt-4 text-lg font-semibold">{processingStatus}</p>
-        <p className="mt-1 text-sm text-gray-400">{fileName}</p>
+      <div className="text-center w-full max-w-md px-4">
+        {appStatus === APP_STATUS.STRUCTURING ? (
+          <ProcessingTracker
+            title="テキストを構造化中..."
+            steps={STRUCTURING_STEPS}
+            currentStepKey={thinkingState}
+            totalWaitTime={totalWaitTime}
+          />
+        ) : appStatus === APP_STATUS.GENERATING_OUTLINE ? (
+          <ProcessingTracker
+            title="構成案を生成中..."
+            steps={OUTLINE_STEPS}
+            currentStepKey={thinkingState}
+            totalWaitTime={totalWaitTime}
+          />
+        ) : (
+          <>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+            <p className="mt-4 text-lg font-semibold">{processingStatus}</p>
+          </>
+        )}
+        <p className="mt-4 text-sm text-gray-400">{fileName}</p>
       </div>
     ) : appStatus !== APP_STATUS.INITIAL ? (
        <div className="text-center">
@@ -811,12 +849,78 @@ const GenerationControls = ({ onPreview, onApprove, onEditCode, onRegenerate, on
     </div>
 );
 
+/**
+ * 汎用的な進捗トラッカー
+ * AIの「思考プロセス」のステップを表示するために使用 (カウントダウンタイマー機能付き)
+ */
+const ProcessingTracker = ({ title, steps, currentStepKey, totalWaitTime }) => {
+  const currentStepIndex = steps.findIndex(step => step.key === currentStepKey);
+
+  // [NEW] 残り時間管理
+  const [remainingTime, setRemainingTime] = useState(Math.ceil(totalWaitTime / 1000));
+
+  useEffect(() => {
+    // totalWaitTime がセットされたら（0より大きい場合）、タイマーを開始
+    if (totalWaitTime > 0) {
+      const initialSeconds = Math.ceil(totalWaitTime / 1000);
+      setRemainingTime(initialSeconds);
+
+      const interval = setInterval(() => {
+        setRemainingTime(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // クリーンアップ
+      return () => clearInterval(interval);
+    } else {
+      // 処理が完了したらタイマーを0に
+      setRemainingTime(0);
+    }
+  }, [totalWaitTime]); // totalWaitTime が変わった時（＝新規処理開始時）にリセット
+
+  return (
+    <div className="bg-gray-900/50 border border-white/10 rounded-lg p-4">
+      <p className="font-semibold text-sm flex items-center mb-3">
+        <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+        {title}
+        {/* [NEW] 残り時間表示 (1秒以上ある場合のみ) */}
+        {remainingTime > 0 && (
+          <span className="ml-auto text-xs text-gray-400">
+            (残り約 {remainingTime} 秒)
+          </span>
+        )}
+      </p>
+      <div className="ml-6 pl-4 border-l-2 border-indigo-500 space-y-2">
+        {steps.map((step, stepIndex) => (
+          <p 
+            key={step.key} 
+            className={`text-xs flex items-center transition-colors ${
+              stepIndex <= currentStepIndex ? 'text-gray-200' : 'text-gray-500'
+            }`}
+          >
+            {stepIndex < currentStepIndex ? 
+              <span className="text-green-400 mr-2">✓</span> : 
+              stepIndex === currentStepIndex ? 
+              <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></span> : 
+              <span className="mr-2">○</span>
+            }
+            {step.text}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const GenerationProgressTracker = ({ outline, currentIndex, thinkingState }) => {
   // 1. アクティブなスライドへの参照を作成
   const activeSlideRef = useRef(null);
 
-  const thinkingSteps = [ { key: 'analyzing', text: 'スライドの内容を分析中...' }, { key: 'designing', text: 'インフォグラフィックをデザイン中...' }, { key: 'coding', text: 'HTMLコードを組み立て中...' } ];
-  const currentStepIndex = thinkingSteps.findIndex(step => step.key === thinkingState);
 
   // 2. currentIndex が変更されたら、アクティブな項目にスクロール
   useEffect(() => {
@@ -851,13 +955,12 @@ const GenerationProgressTracker = ({ outline, currentIndex, thinkingState }) => 
               </p>
 
               {isInProgress && (
-                <div className="mt-3 ml-6 pl-4 border-l-2 border-indigo-500 space-y-2">
-                  {thinkingSteps.map((step, stepIndex) => (
-                    <p key={step.key} className={`text-xs flex items-center transition-colors ${stepIndex <= currentStepIndex ? 'text-gray-200' : 'text-gray-500'}`}>
-                      {stepIndex < currentStepIndex ? <span className="text-green-400 mr-2">✓</span> : stepIndex === currentStepIndex ? <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></span> : <span className="mr-2">○</span>}
-                      {step.text}
-                    </p>
-                  ))}
+                <div className="mt-3">
+                  <ProcessingTracker
+                    title="スライドを生成中..."
+                    steps={SLIDE_GENERATION_STEPS}
+                    currentStepKey={thinkingState}
+                  />
                 </div>
               )}
             </div>
@@ -1165,6 +1268,8 @@ export default function App() {
   
   const [thinkingState, setThinkingState] = useState(null);
 
+  const [currentTotalWaitTime, setCurrentTotalWaitTime] = useState(0);
+
   const chatEndRef = useRef(null);
 
   // --- Effects ---
@@ -1470,17 +1575,57 @@ export default function App() {
     
     setOriginalExtractedText(text); // ★追加: 構造化前の生テキストを保存
     
-    const result = await callGeminiApi(PROMPTS.structureText(text), 'gemini-2.5-flash-lite', 'テキスト構造化');
+    // 1. 待機時間を計算し、Stateにセット
+    const calculatedWaitTime = Math.max(4000, Math.min(180000, text.length * 1.8));
+    setCurrentTotalWaitTime(calculatedWaitTime);
+    const stepWaitTime = calculatedWaitTime / 3; // 3ステップで分割
+
+    // 2. APIコール (Promise)
+    const apiPromise = callGeminiApi(PROMPTS.structureText(text), 'gemini-2.5-flash-lite', 'テキスト構造化');
     
-    setIsProcessing(false);
-    if (result && !result.error) {
-      setStructuredMarkdown(result);
-      setAppStatus(APP_STATUS.STRUCTURED);
-      setMessages(prev => [...prev, { type: 'system', text: 'テキストの構造化が完了しました。' }]);
-    } else {
-      // エラーハンドリング
+    // 3. ダミー進捗 (Promise)
+    const dummyProgressPromise = (async () => {
+      try {
+        setThinkingState(STRUCTURING_STEPS[0].key); // cleaning
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
+
+        setThinkingState(STRUCTURING_STEPS[1].key); // analyzing
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
+
+        setThinkingState(STRUCTURING_STEPS[2].key); // formatting
+        // 最後のステップの待機時間もきっちり待つ (要件2)
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime)); 
+      } catch (e) {
+        console.error("Dummy progress failed", e);
+      }
+    })();
+
+    try {
+      // 4. 両方の完了を待つ
+      const [apiResult] = await Promise.all([apiPromise, dummyProgressPromise]);
+      
+      // 5. 両方完了したら後処理
+      setThinkingState(null);
+      setIsProcessing(false);
+      setCurrentTotalWaitTime(0); // Stateリセット
+
+      if (apiResult && !apiResult.error) {
+        setStructuredMarkdown(apiResult);
+        setAppStatus(APP_STATUS.STRUCTURED);
+        setMessages(prev => [...prev, { type: 'system', text: 'テキストの構造化が完了しました。' }]);
+      } else {
+        // エラーハンドリング
+        setApiErrorStep('structure');
+        setMessages(prev => [...prev, { type: 'system', text: apiResult ? apiResult.error : '予期せぬエラーが発生しました。' }]);
+      }
+    } catch (error) {
+      // APIエラー (callGeminiApiがthrowした場合) やその他の予期せぬエラー
+      console.error("[FATAL] Error during structuring:", error);
+      setThinkingState(null);
+      setIsProcessing(false);
+      setCurrentTotalWaitTime(0);
       setApiErrorStep('structure');
-      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せぬエラーが発生しました。' }]);
+      setMessages(prev => [...prev, { type: 'system', text: `予期せぬエラーが発生しました: ${error.message}` }]);
     }
   };
 
@@ -1552,227 +1697,276 @@ export default function App() {
   };
   
   const handleSectionHeaderChoice = async (useSectionHeaders) => {
-    setMessages(prev => [...prev, { type: 'user', text: `セクションヘッダー: ${useSectionHeaders ? 'はい' : 'いえ'}` }]);
+    setMessages(prev => [...prev, { type: 'user', text: `セクションヘダー: ${useSectionHeaders ? 'はい' : 'いえ'}` }]);
     setAppStatus(APP_STATUS.GENERATING_OUTLINE);
     setIsProcessing(true);
     setProcessingStatus('構成案を生成中...');
-    setApiErrorStep(null); // 再試行の前にエラー状態をリセット
+    setApiErrorStep(null);
 
+    // [ここから変更]
+    // 1. 待機時間を計算し、Stateにセット
+    const calculatedWaitTime = Math.max(5000, Math.min(180000, structuredMarkdown.length * 1.4));    setCurrentTotalWaitTime(calculatedWaitTime);
+    const stepWaitTime = calculatedWaitTime / 5; // 5ステップで分割
+
+    // 2. APIコール (Promise)
     const prompt = PROMPTS.createOutline(structuredMarkdown, includeAgenda, useSectionHeaders);
-    const result = await callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案生成');
-    
-    setIsProcessing(false);
-    
-    if (result && !result.error) {
-      let outline;
+    const apiPromise = callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案生成');
+
+    // 3. ダミー進捗 (Promise)
+    const dummyProgressPromise = (async () => {
       try {
-        // 1. まず通常通りパースを試みる
-        outline = JSON.parse(result);
+        setThinkingState(OUTLINE_STEPS[0].key); // analyzing_doc
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
+
+        setThinkingState(OUTLINE_STEPS[1].key); // selecting_templates
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
+
+        setThinkingState(OUTLINE_STEPS[2].key); // creating_title_agenda
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
         
-      } catch (error) {
-        // 2. パース失敗時
-        // 報告された「Bad escaped character」エラーの場合
-        if (error.message.includes('escaped character')) {
-          console.warn('[WARN] JSON parse failed. Retrying with backslash fix...');
-          try {
-            // 3. バックスラッシュを強制的に二重エスケープして再試行
-            const fixedResult = result.replace(/\\/g, '\\\\');
-            outline = JSON.parse(fixedResult);
-            // ユーザーに自動修正したことを通知
-            setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIの応答形式(エスケープ文字)を修正しました。" }]);
-          } catch (fixError) {
-             // 4. 修正してもパースに失敗した場合
-             console.error('[FATAL] Backslash fix failed.', fixError);
+        setThinkingState(OUTLINE_STEPS[3].key); // generating_content
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
+        
+        setThinkingState(OUTLINE_STEPS[4].key); // formatting_json
+        // 最後のステップの待機時間もきっちり待つ (要件2)
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
+      } catch (e) {
+        console.error("Dummy progress failed", e);
+      }
+    })();
+
+
+    try {
+      // 4. 両方の完了を待つ
+      const [result] = await Promise.all([apiPromise, dummyProgressPromise]);
+
+      setThinkingState(null);
+      setIsProcessing(false);
+      setCurrentTotalWaitTime(0); // Stateリセット
+      
+      if (result && !result.error) {
+        // (ここから既存のJSONパース、サニタイズ、ルールチェックロジック)
+        let outline;
+        try {
+          // 1. まず通常通りパースを試みる
+          outline = JSON.parse(result);
+          
+        } catch (error) {
+          // 2. パース失敗時
+          // 報告された「Bad escaped character」エラーの場合
+          if (error.message.includes('escaped character')) {
+            console.warn('[WARN] JSON parse failed. Retrying with backslash fix...');
+            try {
+              // 3. バックスラッシュを強制的に二重エスケープして再試行
+              const fixedResult = result.replace(/\\/g, '\\\\');
+              outline = JSON.parse(fixedResult);
+              // ユーザーに自動修正したことを通知
+              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIの応答形式(エスケープ文字)を修正しました。" }]);
+            } catch (fixError) {
+               // 4. 修正してもパースに失敗した場合
+               console.error('[FATAL] Backslash fix failed.', fixError);
+               setApiErrorStep('outline');
+               setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+               return; // ここで処理を中断
+            }
+          } else {
+             // 5. エスケープ文字以外のエラーの場合
              setApiErrorStep('outline');
              setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
              return; // ここで処理を中断
           }
-        } else {
-           // 5. エスケープ文字以外のエラーの場合
-           setApiErrorStep('outline');
-           setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
-           return; // ここで処理を中断
         }
-      }
 
-      // --- パース成功時 (または修正成功時) の共通処理 ---
+        // --- パース成功時 (または修正成功時) の共通処理 ---
 
-      // ▼▼▼ サニタイズ処理 (前回実装) ▼▼▼
-      const sanitizedOutline = outline.map(slide => {
-          const newSlide = { ...slide };
+        // ▼▼▼ サニタイズ処理 (前回実装) ▼▼▼
+        const sanitizedOutline = outline.map(slide => {
+            const newSlide = { ...slide };
 
-          // 1. 'content_basic' のサニタイズ (summary -> items)
-          if (newSlide.template === 'content_basic') {
-              if ((!newSlide.items || (Array.isArray(newSlide.items) && newSlide.items.length === 0)) && 
-                  (newSlide.summary && typeof newSlide.summary === 'string' && newSlide.summary.trim().length > 0)) {
-                  newSlide.items = newSlide.summary.split('\n')
-                      .map(item => item.trim())
-                      .filter(item => item.length > 0);
-              }
-              newSlide.summary = ""; 
-          }
-          // 2. 構造化テンプレート (points, columns, table, steps) のサニタイズ
-          else if (['three_points', 'comparison', 'vertical_steps', 'table_basic'].includes(newSlide.template)) {
-              newSlide.summary = "";
-          }
-          // 3. 'summary' ベースのテンプレートのサニタイズ (items -> summary)
-          else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {
-              if ((!newSlide.summary || (typeof newSlide.summary === 'string' && newSlide.summary.trim().length === 0)) && 
-                  (newSlide.items && Array.isArray(newSlide.items) && newSlide.items.length > 0)) {
-                  newSlide.summary = newSlide.items.join('\n');
-              }
-              newSlide.items = null;
-              newSlide.points = null;
-              newSlide.columns = null;
-              newSlide.table = null;
-              if (typeof newSlide.summary !== 'string') {
-                  newSlide.summary = "";
-              }
-          }
-          // 4. コンテンツ不要のテンプレートのサニタイズ
-          else if (newSlide.template === 'section_header') {
-              newSlide.summary = "";
-              newSlide.items = null;
-              newSlide.points = null;
-              newSlide.columns = null;
-              newSlide.table = null;
-          }
-
-          return newSlide;
-      });
-      // ▲▲▲ サニタイズ処理ここまで ▲▲▲
-
-      
-      // ▼▼▼ 【NEW】リテラル改行コード（\\n）を本物の改行（\n）に置換する処理 ▼▼▼
-      const newlineFixedOutline = sanitizeNewlines(sanitizedOutline);
-      // ▲▲▲ 【NEW】ここまで ▲▲▲
-
-
-      // ▼▼▼ ここからルールチェックと強制修正ロジック ▼▼▼
-      let finalOutline = [...newlineFixedOutline]; // ★修正: newlineFixedOutline を使用
-
-      // === 1. アジェンダのチェックと修正 ===
-      const agendaMaxItems = 6;
-      let hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda';
-
-      if (includeAgenda) {
-        
-        // ▼▼▼ 【NEW】アジェンダ分割ロジック ▼▼▼
-        if (hasAgenda) {
-          // 2枚目がアジェンダの場合、項目数チェックと分割を行う
-          const targetAgenda = finalOutline[1];
-          const items = (targetAgenda.summary || '').split('\n').filter(item => item.trim().length > 0);
-
-          if (items.length > agendaMaxItems) {
-            // 1. 強制分割処理
-            const totalParts = Math.ceil(items.length / agendaMaxItems);
-            const newAgendaSlides = [];
-            
-            // AIがタイトルに(1/n)などを付けている可能性を考慮し、元のタイトルをベースにする
-            const baseTitle = (targetAgenda.title || 'アジェンダ').replace(/\s*\(\d+\/\d+\)\s*$/, ''); // (1/2)などを削除
-
-            for (let i = 0; i < totalParts; i++) {
-              const partItems = items.slice(i * agendaMaxItems, (i + 1) * agendaMaxItems);
-              newAgendaSlides.push({
-                ...targetAgenda, // 元スライドの情報をコピー (templateなど)
-                title: `${baseTitle} (${i + 1}/${totalParts})`,
-                summary: partItems.join('\n'),
-                items: null, // アジェンダはsummaryのみ使用
-                points: null,
-                columns: null,
-                table: null,
-              });
+            // 1. 'content_basic' のサニタイズ (summary -> items)
+            if (newSlide.template === 'content_basic') {
+                if ((!newSlide.items || (Array.isArray(newSlide.items) && newSlide.items.length === 0)) && 
+                    (newSlide.summary && typeof newSlide.summary === 'string' && newSlide.summary.trim().length > 0)) {
+                    newSlide.items = newSlide.summary.split('\n')
+                        .map(item => item.trim())
+                        .filter(item => item.length > 0);
+                }
+                newSlide.summary = ""; 
+            }
+            // 2. 構造化テンプレート (points, columns, table, steps) のサニタイズ
+            else if (['three_points', 'comparison', 'vertical_steps', 'table_basic'].includes(newSlide.template)) {
+                newSlide.summary = "";
+            }
+            // 3. 'summary' ベースのテンプレートのサニタイズ (items -> summary)
+            else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {
+                if ((!newSlide.summary || (typeof newSlide.summary === 'string' && newSlide.summary.trim().length === 0)) && 
+                    (newSlide.items && Array.isArray(newSlide.items) && newSlide.items.length > 0)) {
+                    newSlide.summary = newSlide.items.join('\n');
+                }
+                newSlide.items = null;
+                newSlide.points = null;
+                newSlide.columns = null;
+                newSlide.table = null;
+                if (typeof newSlide.summary !== 'string') {
+                    newSlide.summary = "";
+                }
+            }
+            // 4. コンテンツ不要のテンプレートのサニタイズ
+            else if (newSlide.template === 'section_header') {
+                newSlide.summary = "";
+                newSlide.items = null;
+                newSlide.points = null;
+                newSlide.columns = null;
+                newSlide.table = null;
             }
 
-            // 2. 元のアジェンダスライド(outline[1])を、分割したスライド群で置き換え
-            finalOutline.splice(1, 1, ...newAgendaSlides);
-            
-            // 3. ユーザーに通知
-            setMessages(prev => [...prev, { type: 'system', text: "【自動修正】アジェンダの項目数が多いため、スライドを自動的に分割しました。" }]);
-          }
-        }
-        // ▲▲▲ アジェンダ分割ロジックここまで ▲▲▲
+            return newSlide;
+        });
+        // ▲▲▲ サニタイズ処理ここまで ▲▲▲
 
-        // "はい" を選んだのに、無い場合 (分割チェック後も無い場合)
-        // ※分割ロジックが実行された場合、hasAgendaはtrueなのでここは実行されない
-        if (!hasAgenda) { 
-            // 3枚目以降（インデックス1以降）のタイトルを収集して目次を作成
-            const agendaItems = finalOutline
-                .slice(1) // 1枚目(title_slide)を除外
-                .map(slide => slide.title || '')
-                .filter(title => title.length > 0);
+        
+        // ▼▼▼ 【NEW】リテラル改行コード（\\n）を本物の改行（\n）に置換する処理 ▼▼▼
+        const newlineFixedOutline = sanitizeNewlines(sanitizedOutline);
+        // ▲▲▲ 【NEW】ここまで ▲▲▲
 
-            // ★修正: 項目がない場合も考慮
-            const newAgendaItems = (agendaItems.length > 0 ? agendaItems : ['（目次がありません）']);
-            const totalParts = Math.ceil(newAgendaItems.length / agendaMaxItems);
-            const newAgendaSlides = [];
 
-            if (newAgendaItems.length === 0 || (newAgendaItems.length === 1 && newAgendaItems[0] === '（目次がありません）')) {
-              // 項目がない場合は、空のアジェンダを1枚だけ作る
-               newAgendaSlides.push({
-                  title: "アジェンダ",
-                  summary: '（目次がありません）',
-                  template: "agenda",
-                  items: null, points: null, columns: null, table: null,
-              });
-            } else {
-              // 項目がある場合は分割する
+        // ▼▼▼ ここからルールチェックと強制修正ロジック ▼▼▼
+        let finalOutline = [...newlineFixedOutline]; // ★修正: newlineFixedOutline を使用
+
+        // === 1. アジェンダのチェックと修正 ===
+        const agendaMaxItems = 6;
+        let hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda';
+
+        if (includeAgenda) {
+          
+          // ▼▼▼ 【NEW】アジェンダ分割ロジック ▼▼▼
+          if (hasAgenda) {
+            // 2枚目がアジェンダの場合、項目数チェックと分割を行う
+            const targetAgenda = finalOutline[1];
+            const items = (targetAgenda.summary || '').split('\n').filter(item => item.trim().length > 0);
+
+            if (items.length > agendaMaxItems) {
+              // 1. 強制分割処理
+              const totalParts = Math.ceil(items.length / agendaMaxItems);
+              const newAgendaSlides = [];
+              
+              // AIがタイトルに(1/n)などを付けている可能性を考慮し、元のタイトルをベースにする
+              const baseTitle = (targetAgenda.title || 'アジェンダ').replace(/\s*\(\d+\/\d+\)\s*$/, ''); // (1/2)などを削除
+
               for (let i = 0; i < totalParts; i++) {
-                const partItems = newAgendaItems.slice(i * agendaMaxItems, (i + 1) * agendaMaxItems);
+                const partItems = items.slice(i * agendaMaxItems, (i + 1) * agendaMaxItems);
                 newAgendaSlides.push({
-                  title: `アジェンダ${totalParts > 1 ? ` (${i + 1}/${totalParts})` : ''}`, // 1枚の時は(1/1)を付けない
+                  ...targetAgenda, // 元スライドの情報をコピー (templateなど)
+                  title: `${baseTitle} (${i + 1}/${totalParts})`,
                   summary: partItems.join('\n'),
-                  template: "agenda",
-                  items: null, points: null, columns: null, table: null,
+                  items: null, // アジェンダはsummaryのみ使用
+                  points: null,
+                  columns: null,
+                  table: null,
                 });
               }
+
+              // 2. 元のアジェンダスライド(outline[1])を、分割したスライド群で置き換え
+              finalOutline.splice(1, 1, ...newAgendaSlides);
+              
+              // 3. ユーザーに通知
+              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】アジェンダの項目数が多いため、スライドを自動的に分割しました。" }]);
             }
+          }
+          // ▲▲▲ アジェンダ分割ロジックここまで ▲▲▲
 
-            // 2枚目（インデックス 1）に強制挿入
-            finalOutline.splice(1, 0, ...newAgendaSlides);
-            
-            setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
+          // "はい" を選んだのに、無い場合 (分割チェック後も無い場合)
+          // ※分割ロジックが実行された場合、hasAgendaはtrueなのでここは実行されない
+          // ※分割ロジック実行後に hasAgenda を再評価する必要がある
+          hasAgenda = finalOutline.length > 1 && finalOutline[1].template === 'agenda'; // ★再評価
+          if (!hasAgenda) { 
+              // 3枚目以降（インデックス1以降）のタイトルを収集して目次を作成
+              const agendaItems = finalOutline
+                  .slice(1) // 1枚目(title_slide)を除外
+                  .map(slide => slide.title || '')
+                  .filter(title => title.length > 0);
+
+              // ★修正: 項目がない場合も考慮
+              const newAgendaItems = (agendaItems.length > 0 ? agendaItems : ['（目次がありません）']);
+              const totalParts = Math.ceil(newAgendaItems.length / agendaMaxItems);
+              const newAgendaSlides = [];
+
+              if (newAgendaItems.length === 0 || (newAgendaItems.length === 1 && newAgendaItems[0] === '（目次がありません）')) {
+                // 項目がない場合は、空のアジェンダを1枚だけ作る
+                 newAgendaSlides.push({
+                    title: "アジェンダ",
+                    summary: '（目次がありません）',
+                    template: "agenda",
+                    items: null, points: null, columns: null, table: null,
+                });
+              } else {
+                // 項目がある場合は分割する
+                for (let i = 0; i < totalParts; i++) {
+                  const partItems = newAgendaItems.slice(i * agendaMaxItems, (i + 1) * agendaMaxItems);
+                  newAgendaSlides.push({
+                    title: `アジェンダ${totalParts > 1 ? ` (${i + 1}/${totalParts})` : ''}`, // 1枚の時は(1/1)を付けない
+                    summary: partItems.join('\n'),
+                    template: "agenda",
+                    items: null, points: null, columns: null, table: null,
+                  });
+                }
+              }
+
+              // 2枚目（インデックス 1）に強制挿入
+              finalOutline.splice(1, 0, ...newAgendaSlides);
+              
+              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
+          }
+        } else {
+            // "いいえ" を選んだのに、有る場合
+            if (hasAgenda) { // 2枚目がアジェンダだったら、という元のロジック
+                // 2枚目のアジェンダを削除
+                finalOutline.splice(1, 1);
+                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。" }]);
+            }
+            // 念のため、2枚目以外のアジェンダも削除（1枚目は除く）
+            finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'agenda');
         }
+
+        // === 2. セクションヘッダーのチェックと修正 ===
+        const hasSectionHeaders = finalOutline.some(slide => slide.template === 'section_header');
+        
+        if (useSectionHeaders) {
+            // "はい" を選んだのに、無い場合
+            if (!hasSectionHeaders) {
+                // 警告を出す
+                setMessages(prev => [...prev, { type: 'system', text: "【警告】セクションヘッダーの自動挿入（はい）を選択しましたが、AIが構成案に含めなかった可能性があります。構成案を確認してください。" }]);
+            }
+        } else {
+            // "いいえ" を選んだのに、有る場合
+            if (hasSectionHeaders) {
+                // 1枚目（title_slide）以外で、section_header を全て削除
+                finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'section_header');
+                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘッダーを生成したため、構成案から削除しました。" }]);
+            }
+        }
+        // ▲▲▲ ルールチェックここまで ▲▲▲
+
+        setSlideOutline(finalOutline); // ← ルールチェック済みのデータをセット
+        setAppStatus(APP_STATUS.OUTLINE_CREATED);
+        // 構成案が生成されたことを示すメインのメッセージは最後に表示
+        setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
+
       } else {
-          // "いいえ" を選んだのに、有る場合
-          if (hasAgenda) { // 2枚目がアジェンダだったら、という元のロジック
-              // 2枚目のアジェンダを削除
-              finalOutline.splice(1, 1);
-              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。" }]);
-          }
-          // 念のため、2枚目以外のアジェンダも削除（1枚目は除く）
-          finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'agenda');
+        // エラーハンドリング (callGeminiApi自体のエラー)
+        setApiErrorStep('outline');
+        setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せずエラーが発生しました。' }]);
       }
-
-      // === 2. セクションヘッダーのチェックと修正 ===
-      const hasSectionHeaders = finalOutline.some(slide => slide.template === 'section_header');
-      
-      if (useSectionHeaders) {
-          // "はい" を選んだのに、無い場合
-          if (!hasSectionHeaders) {
-              // 警告を出す
-              setMessages(prev => [...prev, { type: 'system', text: "【警告】セクションヘッダーの自動挿入（はい）を選択しましたが、AIが構成案に含めなかった可能性があります。構成案を確認してください。" }]);
-          }
-      } else {
-          // "いいえ" を選んだのに、有る場合
-          if (hasSectionHeaders) {
-              // 1枚目（title_slide）以外で、section_header を全て削除
-              finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'section_header');
-              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘッダーを生成したため、構成案から削除しました。" }]);
-          }
-      }
-      // ▲▲▲ ルールチェックここまで ▲▲▲
-
-      setSlideOutline(finalOutline); // ← ルールチェック済みのデータをセット
-      setAppStatus(APP_STATUS.OUTLINE_CREATED);
-      // 構成案が生成されたことを示すメインのメッセージは最後に表示
-      setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
-
-    } else {
-      // エラーハンドリング (callGeminiApi自体のエラー)
+    } catch (error) {
+      // (JSONパースエラーなどは既存のロジックで捕捉されるため、ここではシミュレーション自体のエラーを捕捉)
+      console.error("[FATAL] Error during outline progress simulation:", error);
+      setThinkingState(null);
+      setIsProcessing(false);
+      setCurrentTotalWaitTime(0);
       setApiErrorStep('outline');
-      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せずエラーが発生しました。' }]);
+      setMessages(prev => [...prev, { type: 'system', text: `予期せぬエラーが発生しました: ${error.message}` }]);
     }
+    // [ここまで変更]
   };
 
   const handleOutlineChange = (index, field, value) => {
@@ -2376,7 +2570,9 @@ export default function App() {
               handleDragOver={handleDragOver} 
               handleDrop={handleDrop} 
               onFileSelect={handleFileSelect} 
-              appStatus={appStatus} 
+              appStatus={appStatus}
+              thinkingState={thinkingState}
+              totalWaitTime={currentTotalWaitTime}
             />
           ) : (
             <PreviewPanel 
