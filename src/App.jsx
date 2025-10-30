@@ -55,9 +55,10 @@ ${text}`,
 - \`section_header\`: 章の区切り
 - \`content_basic\`: **単純な箇条書き**（番号なし・あり両方）のための最も標準的なテンプレート。
 - \`content_with_diagram\`: 文章と図解（インフォグラフィック）。
+- \`math_basic\`: **単一の主要な数式**とその解説（上下分割）。
 - \`three_points\`: 3つの要点を横並びで表示。
 - \`vertical_steps\`: 時系列やステップ。
-- \`comparison\`: **2つの項目（メリット/デメリット、A案/B案など）を比較・対比**するための専用テンプレート。
+- \`comparison\`: **2〜4つの項目（メリット/デメリット、A案/B案/C案など）を比較・対比**するための専用テンプレート。
 - \`table_basic\`: **表形式（テーブル）**。機能一覧、比較表、数値データなど。
 - \`summary_or_thankyou\`: 最後のまとめ、または「ご聴取ありがとうございました」用。
 
@@ -75,7 +76,7 @@ ${text}`,
         \`\`\`
     * **出力テンプレート**: \`table_basic\`
 
-2.  **[次点] 比較・対比か？**: 内容が2つの項目（例：メリット/デメリット、A案/B案、従来/新規）を明確に比較・対比している場合は、必ず \`comparison\` を選択します。
+2.  **[次点] 比較・対比か？**: 内容が **2〜4つの項目**（例：メリット/デメリット、A案/B案、従来/新規、プランA/B/C）を明確に比較・対比している場合は、必ず \`comparison\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 従来システムとの比較
@@ -108,15 +109,24 @@ ${text}`,
         \`\`\`
     * **出力テンプレート**: \`vertical_steps\`
 
-5.  **[次点] 図解が必要か？**: 内容が抽象的な概念や関係性（例：システム構成図、相関関係）を含み、テキストだけでは伝わりにくい場合は、\`content_with_diagram\` を選択します。
+5.  **[次点] 主要な数式か？**: 内容が**単一の主要な数式ブロック（$$...$$）**とその解説文で構成されている場合（数式が主題の場合）、必ず \`math_basic\` を選択します。
     * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### 二次方程式の解
+        二次方程式 $ax^2 + bx + c = 0$ の解は、以下の公式で与えられます。
+        $$ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} $$
+        この $b^2 - 4ac$ の部分を判別式と呼びます...
+        \`\`\`
+    * **出力テンプレート**: \`math_basic\`
+
+6.  **[次点] 図解が必要か？**: 内容が抽象的な概念や関係性（例：システム構成図、相関関係）を含み、テキストだけでは伝わりにくい場合、**かつ上記の数式テンプレート（math_basic）に当てはまらない場合**は、\`content_with_diagram\` を選択します。    * **入力例 (Markdown)**:
         \`\`\`markdown
         #### システム構成
         本システムは、ユーザー、アプリケーションサーバー、データベースの3層構造で構成されており...
         \`\`\`
     * **出力テンプレート**: \`content_with_diagram\`
 
-6.  **[最終手段] 単純なリストか？**: 上記のいずれにも当てはまらない、単純な箇条書きや説明文の場合は、\`content_basic\` を選択します。
+7.  **[最終手段] 単純なリストか？**: 上記のいずれにも当てはまらない、単純な箇条書きや説明文の場合は、\`content_basic\` を選択します。
 
 ### 条件
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
@@ -141,11 +151,13 @@ ${text}`,
   - **【自動分割】**: もし元のデータがこのサイズに **要約しきれないほど多い場合**、無理に1枚に押し込めたり、情報を省略したりしないでください。
   - **【分割ルール】**: その場合、\`template\` が \`content_basic\` のスライドを **複数枚に分割** してください。（例：1枚目のタイトルを「**主な特長 (1/2)**」、2枚目のタイトルを「**主な特長 (2/2)**」のようにし、8行目以降の項目を2枚目に配置してください。）
 
-- **2つの項目を比較・対比**し、\`comparison\` テンプレートを使用する場合は、\`summary\`は空にし、代わりに\`columns\`というキーで2要素の配列を生成してください。
+- **2〜4つの項目を比較・対比**し、\`comparison\` テンプレートを使用する場合は、\`summary\`は空にし、代わりに\`columns\`というキーで **2〜4要素** の配列（\`{title: "...", items: [...]}\`）を生成してください。
+  - **【最重要・比較項目ルール】**: \`items\` 配列の各文字列は、**\`"**項目名**\`：\`** \`内容\`"\` の形式（例：\`"**価格**：10,000円"\`）を**可能な限り使用してください。**
+  - これにより、何（価格、機能など）を比較しているかが明確になります。
 
 - **表形式（テーブル）が最適なデータ**（例：機能比較一覧、数値データ一覧など）を表現し、\`table_basic\` テンプレートを使用する場合は、
   - **\`summary\`キーは絶対に空（""）**にし、代わりに **\`table\`キー** で \`{ "headers": ["(ヘッダー1)", ...], "rows": [ ["(行1データ1)", ...], ["(行2データ1)", ...] ] }\` の形式のオブジェクトを生成してください。
-  - **【表の重要ルール】**: スライドの視認性を保つため、\`table_basic\` の表は **最大10行、7列程度** に収めてください。
+  - **【表の重要ルール】**: スライドの視認性を保つため、\`table_basic\` の表は **最大7行、5列程度** に収めてください。
   - もし元のデータがこのサイズに **要約しきれないほど多い場合**、無理に1枚に押し込めず、\`template\` が \`table_basic\` のスライドを **複数枚に分割** してください。
     - （例：1枚目のタイトルを「**機能比較 (1/2)**」、2枚目のタイトルを「**機能比較 (2/2)**」のようにし、表の続きを2枚目に配置してください。この際、**ヘッダー行は両方のスライドに含めてください**。）
 
@@ -180,6 +192,13 @@ ${text}`,
   - AIへの指示（description）は、\`summary\`の内容を図解するために具体的に記述してください。
 - **【▲▲▲ 修正点ここまで ▲▲▲】**
 
+- **【math_basic ルール】**
+- \`math_basic\` テンプレートを使用する場合、
+  - **\`summary\`キーに数式の解説文**（Markdown形式）を必ず記述してください。
+  - **\`formula\`キーにKaTeX形式の単一の数式ブロック**（例: \`$$ x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} $$\`）を必ず記述してください。
+  - **【最重要・重複排除】\`summary\` キーの解説文には、\`formula\`キーに記述する数式（またはそのインライン版 $...$）を**含めないでください**。
+  - （例：\`...以下の式で表されます。 $x=y$\` という文章は、\`...以下の式で表されます。\` のように、数式を省略して記述してください。）
+
 ${agendaCondition}
 ${sectionHeaderCondition}
 
@@ -190,7 +209,7 @@ ${sectionHeaderCondition}
 [
   { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
   { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { "needed": true, "description": "システム概要の構成図" } },
-  
+  { "title": "二次方程式の解", "summary": "この公式は...", "template": "math_basic", "formula": "$$ x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} $$" },
   { 
     "title": "3つのプラン", 
     "summary": "", 
@@ -204,7 +223,16 @@ ${sectionHeaderCondition}
   
   { "title": "プロジェクトの3ステップ", "summary": "", "template": "vertical_steps", "items": [ {"title": "ステップ1", "description": "ステップ1の説明..."}, {"title": "ステップ2", "description": "ステップ2の説明..."} ] },
   { "title": "主な特長", "summary": "", "template": "content_basic", "items": [ "特長1", "特長2" ] },
-  { "title": "A案とB案の比較", "summary": "", "template": "comparison", "columns": [ {"title": "A案", "items": ["メリット1"]}, {"title": "B案", "items": ["メリット2"]} ] },
+  { 
+    "title": "A案とB案とC案の比較", 
+    "summary": "", 
+    "template": "comparison", 
+    "columns": [ 
+      {"title": "A案", "items": ["**価格**：10万円", "**納期**：3週間"]}, 
+      {"title": "B案", "items": ["**価格**：12万円", "**納期**：2週間"]},
+      {"title": "C案", "items": ["**価格**：8万円", "**納期**：4週間"]}
+    ] 
+  },
   {
     "title": "機能比較表 (1/2)",
     "summary": "",
@@ -316,6 +344,7 @@ ${availableTemplates.map(t => `- **${t.name}**: ${t.description}`).join('\n')}
 - ${newTemplateName} が "three_points" の場合: \`{ "points": [ { "title": "...", "summary": "...", "icon_description": "..." }, ... ] }\`
 - ${newTemplateName} が "comparison" の場合: \`{ "columns": [ { "title": "A案", "items": [...] }, { "title": "B案", "items": [...] } ] }\`
 - ${newTemplateName} が "table_basic" の場合: \`{ "table": { "headers": ["H1", "H2"], "rows": [["R1C1", "R1C2"], ["R2C1", "R2C2"]] } }\`
+- ${newTemplateName} が "math_basic" の場合: \`{ "summary": "数式の解説...", "formula": "$$ y = ax + b $$" }\` 
 - ${newTemplateName} が "content_with_diagram" の場合: \`{ "summary": "ここにスライドの本文が入ります...", "infographic": { "needed": true, "description": "..." } }\`
 `;
   }
@@ -618,10 +647,46 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
 
   const handleAddColumnItem = (slideIndex, colIndex) => {
     const newOutline = [...outline];
-    const newColumns = [...(newOutline[slideIndex].columns || [{}, {}])];
+    // "columns" が未定義の場合も考慮し、デフォルトの配列 [{}, {}] を使う
+    const currentColumns = newOutline[slideIndex].columns || [{}, {}]; 
+    const newColumns = [...currentColumns];
+    
+    // colIndex が範囲外の場合も安全に対処
+    if (!newColumns[colIndex]) {
+        newColumns[colIndex] = { title: "", items: [] };
+    }
+
     const newItems = [...(newColumns[colIndex].items || []), "新しい項目"];
     newColumns[colIndex] = { ...newColumns[colIndex], items: newItems };
     onChange(slideIndex, 'columns', newColumns);
+  };
+
+  const handleAddColumn = (slideIndex) => {
+      const newOutline = [...outline];
+      const currentColumns = newOutline[slideIndex].columns || [];
+      
+      // 4項目を上限とする（UIの崩れ防止）
+      if (currentColumns.length >= 4) {
+          alert('比較項目は最大4つまでです。');
+          return;
+      }
+      
+      const newColumns = [...currentColumns, { title: "新しいカラム", items: ["新しい項目"] }];
+      onChange(slideIndex, 'columns', newColumns);
+  };
+
+  const handleRemoveColumn = (slideIndex, colIndexToRemove) => {
+      const newOutline = [...outline];
+      const currentColumns = newOutline[slideIndex].columns || [];
+      
+      // 2項目を最小とする
+      if (currentColumns.length <= 2) {
+          alert('比較項目は最低2つ必要です。');
+          return;
+      }
+
+      const newColumns = currentColumns.filter((_, index) => index !== colIndexToRemove);
+      onChange(slideIndex, 'columns', newColumns);
   };
 
   const availableTemplates = THEMES[selectedTheme]?.templates ? Object.keys(THEMES[selectedTheme].templates) : [];
@@ -707,32 +772,61 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                 )}
               </div>
             ) : slide.template === 'comparison' ? (
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                {[0, 1].map(colIndex => (
-                  <div key={colIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10">
-                    <label className="text-xs font-bold text-gray-400 mb-2 block">カラム {colIndex + 1} - タイトル</label>
-                    <input 
-                      type="text" 
-                      value={slide.columns?.[colIndex]?.title || ''} 
-                      onChange={(e) => handleColumnChange(index, colIndex, 'title', e.target.value)} 
-                      className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                    />
-                    <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">カラム {colIndex + 1} - 箇条書き項目</label>
-                    {slide.columns?.[colIndex]?.items?.map((item, itemIndex) => (
-                      <input
-                        key={itemIndex}
-                        type="text"
-                        value={item}
-                        onChange={(e) => handleColumnItemChange(index, colIndex, itemIndex, e.target.value)}
-                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1"
-                      />
-                    ))}
-                    <button onClick={() => handleAddColumnItem(index, colIndex)} className="mt-2 text-xs px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded">項目を追加</button>
+              <div className="space-y-3 mt-3">
+                  {/* ▼▼▼ grid-cols-2 を変更 ▼▼▼ */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> 
+                      {slide.columns?.map((col, colIndex) => (
+                          <div key={colIndex} className="bg-gray-800/50 p-3 rounded-md border border-white/10 relative">
+                              {/* カラム削除ボタン (2つより多い場合のみ表示) */}
+                              {slide.columns.length > 2 && (
+                                  <button 
+                                      onClick={() => handleRemoveColumn(index, colIndex)}
+                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-700 hover:bg-red-600 rounded-full text-white text-xs font-bold flex items-center justify-center"
+                                      title="このカラムを削除"
+                                  >
+                                      ×
+                                  </button>
+                              )}
+                          
+                              <label className="text-xs font-bold text-gray-400 mb-2 block">カラム {colIndex + 1} - タイトル</label>
+                              <input 
+                                  type="text" 
+                                  value={col.title || ''} 
+                                  onChange={(e) => handleColumnChange(index, colIndex, 'title', e.target.value)} 
+                                  className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                              />
+                              <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">カラム {colIndex + 1} - 箇条書き項目</label>
+                              
+                              {col.items?.map((item, itemIndex) => (
+                                  <input
+                                      key={itemIndex}
+                                      type="text"
+                                      value={item}
+                                      onChange={(e) => handleColumnItemChange(index, colIndex, itemIndex, e.target.value)}
+                                      className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1"
+                                      placeholder="例: **価格**：10,000円"
+                                  />
+                              ))}
+                              {/* ▼▼▼ 既存の項目追加ボタン ▼▼▼ */}
+                              <button onClick={() => handleAddColumnItem(index, colIndex)} className="mt-2 text-xs px-2 py-1 bg-sky-700 hover:bg-sky-600 rounded">項目を追加</button>
+                          </div>
+                      ))}
                   </div>
-                ))}
+                  
+                  {/* カラム追加ボタン (4つ未満の場合のみ表示) */}
+                  {(slide.columns?.length || 0) < 4 && (
+                      <div className="text-center">
+                          <button 
+                              onClick={() => handleAddColumn(index)}
+                              className="mt-2 text-sm px-4 py-2 bg-green-700 hover:bg-green-600 rounded"
+                          >
+                              比較カラムを追加 (最大4)
+                          </button>
+                      </div>
+                  )}
               </div>
             ) : slide.template === 'table_basic' ? (
-              <div className="space-y-3 mt-3">
+                <div className="space-y-3 mt-3">
                 <div className="bg-gray-800/50 p-3 rounded-md border border-white/10">
                   <label className="text-xs font-bold text-gray-400 mb-2 block">テーブルヘッダー (カンマ区切り)</label>
                   <input
@@ -747,6 +841,27 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                     onChange={(e) => handleTableRowsChange(index, e.target.value)}
                     rows={5}
                     className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+            ) : slide.template === 'math_basic' ? (
+              <div className="space-y-3 mt-3">
+                <div className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                  <label className="text-xs font-bold text-gray-400 mb-2 block">解説文 (Summary)</label>
+                  <textarea 
+                    value={slide.summary || ''} 
+                    onChange={(e) => onChange(index, 'summary', e.target.value)} 
+                    rows={4} 
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
+                    placeholder="数式の解説文をMarkdown形式で入力..."
+                  />
+                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">数式 (Formula) - KaTeX形式</label>
+                  <textarea 
+                    value={slide.formula || ''} 
+                    onChange={(e) => onChange(index, 'formula', e.target.value)} 
+                    rows={3} 
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
+                    placeholder="例: $$ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} $$"
                   />
                 </div>
               </div>
@@ -1928,7 +2043,61 @@ export default function App() {
             finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'agenda');
         }
 
-        // === 2. セクションヘッダーのチェックと修正 ===
+        // === 2. 表 (table_basic) のチェックと修正 ===
+        const maxTableRows = 7;
+        let tableSplitOccurred = false;
+
+        // flatMap を使って配列を走査し、必要に応じてスライドを置き換える
+        // (アジェンダチェック後の finalOutline を更新する)
+        finalOutline = finalOutline.flatMap(slide => {
+          // 分割条件を満たしているかチェック
+          if (slide.template === 'table_basic' &&
+              slide.table &&
+              Array.isArray(slide.table.rows) &&
+              slide.table.rows.length > maxTableRows) 
+          {
+            tableSplitOccurred = true; // 分割が発生したことを記録
+            
+            const originalHeaders = slide.table.headers || [];
+            const originalRows = slide.table.rows;
+            const totalParts = Math.ceil(originalRows.length / maxTableRows);
+            
+            // AIがタイトルに(1/n)などを付けている可能性を考慮し、元のタイトルをベースにする
+            const baseTitle = (slide.title || '表').replace(/\s*\(\d+\/\d+\)\s*$/, ''); // (1/2)などを削除
+
+            const newTableSlides = [];
+
+            for (let i = 0; i < totalParts; i++) {
+              const partRows = originalRows.slice(i * maxTableRows, (i + 1) * maxTableRows);
+              
+              newTableSlides.push({
+                ...slide, // 元スライドの情報をコピー (templateなど)
+                title: `${baseTitle} (${i + 1}/${totalParts})`,
+                table: {
+                  headers: originalHeaders, // ヘッダーは全スライドで共通
+                  rows: partRows
+                },
+                summary: "", // table_basic のルール
+                items: null,
+                points: null,
+                columns: null,
+              });
+            }
+            
+            return newTableSlides; // 元の1枚の代わりに、分割したスライド配列を返す
+
+          } else {
+            // 条件外のスライドはそのまま返す
+            return [slide]; 
+          }
+        });
+
+        // ユーザーに通知
+        if (tableSplitOccurred) {
+          setMessages(prev => [...prev, { type: 'system', text: "【自動修正】表の行数が多いため、スライドを自動的に分割しました。" }]);
+        }
+
+        // === 3. セクションヘッダーのチェックと修正 ===
         const hasSectionHeaders = finalOutline.some(slide => slide.template === 'section_header');
         
         if (useSectionHeaders) {
@@ -2032,6 +2201,7 @@ export default function App() {
       { name: 'vertical_steps', description: '`items` (オブジェクト配列) が必要。`summary`は空にする。' },
       { name: 'comparison', description: '`columns` (2要素のオブジェクト配列) が必要。`summary`は空にする。' },
       { name: 'table_basic', description: '`table` ({headers: [...], rows: [...]}) が必要。`summary`は空にする。' }, 
+      { name: 'math_basic', description: '`summary` (解説文) と `formula` (KaTeX数式) が必要。' }, 
       { name: 'content_with_diagram', description: '`summary` (本文) が必要。必要なら `infographic` も生成。' },
       { name: 'agenda', description: '`summary` (改行区切りのリスト) が必要。' },
       { name: 'title_slide', description: '`summary` (サブタイトル) が必要。' },
@@ -2069,6 +2239,9 @@ export default function App() {
           // 3. テンプレートのルールに基づき、不要なデータを最終クリーンアップ
           if (['content_basic', 'three_points', 'comparison', 'vertical_steps', 'section_header', 'table_basic'].includes(newTemplateName)) {
             updatedSlide.summary = ""; // これらのテンプレートは summary を持たない
+          }
+          if (newTemplateName !== 'math_basic') { // ★追加
+             updatedSlide.formula = null;
           }
           if (newTemplateName !== 'content_with_diagram') {
              // content_with_diagram 以外は infographic をリセット（AIが生成した場合を除く）
@@ -2233,7 +2406,7 @@ export default function App() {
       const template = THEMES[selectedTheme].templates[currentSlide.template];
       if (!template) throw new Error(`テンプレート「${currentSlide.template}」がテーマ「${selectedTheme}」に見つかりません。`);
 
-      // ★修正: summary や content を marked でパース
+      // summary や content を marked でパース
       const replacements = {
         '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
         '{title}': currentSlide.title || '',
@@ -2241,6 +2414,7 @@ export default function App() {
         '{summary}': marked.parseInline(currentSlide.summary || '', { breaks: true }), 
         // content (content_with_diagram用) はブロック要素(段落など)として解釈
         '{content}': marked.parse(currentSlide.summary || '', { breaks: true }), 
+        '{formula}': '', 
         '{infographic_svg}': '',
         '{agenda_items_html}': '',
         '{items_html}': '',
@@ -2300,6 +2474,29 @@ export default function App() {
         }).join('');
         replacements['{agenda_items_html}'] = agendaItems;
       }
+
+      // math_basic テンプレートの処理
+      if (currentSlide.template === 'math_basic' && currentSlide.formula) {
+        setThinkingState('designing');
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // ▼▼▼ 修正 ▼▼▼
+        
+        // 1. AIが生成したKaTeX文字列（$$...$$）を取得
+        const formulaString = (currentSlide.formula || '');
+        
+        // 2. KaTeXの改行命令（\\）以外の、Markdownソース上の改行コード（\n）を
+        //    すべて半角スペースに置換します。
+        //    これにより、marked.parse() が \n を <br> タグに変換するのを物理的に防ぎます。
+        //    KaTeXの \\ は \n ではないため、この置換の影響を受けません。
+        const cleanedFormula = formulaString.replace(/\n/g, ' ');
+
+        // 3. marked.parse() を呼び出す際、{ breaks: false } を明示的に指定し、
+        //    グローバル設定（もしあれば）を上書きして改行の自動挿入を禁止します。
+        replacements['{formula}'] = marked.parse(cleanedFormula, { breaks: false });
+        
+        // ▲▲▲ 修正ここまで ▲▲▲
+      }
       
       if (['vertical_steps', 'content_basic'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
         setThinkingState('designing');
@@ -2339,20 +2536,26 @@ export default function App() {
       }
 
       if (currentSlide.template === 'comparison' && Array.isArray(currentSlide.columns)) {
-        if (currentSlide.columns[0]) {
-          replacements['{col_1_title}'] = currentSlide.columns[0].title || '';
-          // ★修正: item を parseInline で変換
-          replacements['{col_1_items_html}'] = Array.isArray(currentSlide.columns[0].items)
-            ? currentSlide.columns[0].items.map(item => `<li>${marked.parseInline(item || '', { breaks: true })}</li>`).join('') 
-            : '';
-        }
-        if (currentSlide.columns[1]) {
-          replacements['{col_2_title}'] = currentSlide.columns[1].title || '';
-          // ★修正: item を parseInline で変換
-          replacements['{col_2_items_html}'] = Array.isArray(currentSlide.columns[1].items)
-            ? currentSlide.columns[1].items.map(item => `<li>${marked.parseInline(item || '', { breaks: true })}</li>`).join('') 
-            : '';
-        }
+        // columns 配列をループ処理して、各カラムのHTMLを生成
+        const columnsHtml = currentSlide.columns.map(column => {
+            const title = column.title || '';
+            
+            // カラム内の箇条書きHTMLを生成
+            const itemsHtml = Array.isArray(column.items)
+                ? column.items.map(item => `<li>${marked.parseInline(item || '', { breaks: true })}</li>`).join('')
+                : '';
+                
+            // standardTheme.js の .column クラスに合わせたHTMLを返す
+            return `
+                <div class="column">
+                    <h2>${title}</h2>
+                    <ul>${itemsHtml}</ul>
+                </div>
+            `;
+        }).join(''); // 全カラムのHTMLを結合
+
+        // プレースホルダーを `{comparison_columns_html}` に変更
+        replacements['{comparison_columns_html}'] = columnsHtml;
       }
 
       if (currentSlide.template === 'table_basic' && currentSlide.table) {

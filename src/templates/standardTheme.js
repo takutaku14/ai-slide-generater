@@ -394,20 +394,58 @@ export const standardTemplates = {
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
         :root {
-            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
-            --bg-color-light: #FFFFFF; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+            /* ▼▼▼ 修正 ▼▼▼ (カード背景色を追加) */
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1; --card-bg-color-dark: #334155;
+            --bg-color-light: #F8FAFC; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569; --card-bg-color-light: #FFFFFF;
+            /* ▲▲▲ 修正 ▲▲▲ */
         }
         body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
-        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
-        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); --card-bg-color: var(--card-bg-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); --card-bg-color: var(--card-bg-color-light); }
         .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 60px 80px; background: var(--bg-color); display: flex; flex-direction: column; }
         .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 40px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        .slide-body { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; flex-grow: 1; }
-        .column { padding: 0; }
-        .column h2 { font-size: 28px; color: var(--text-color); margin: 0 0 20px; font-weight: 700; text-align: center; }
-        .column ul { padding-left: 30px; margin: 0; }
-        .column li { font-size: 20px; color: var(--sub-text-color); line-height: 1.8; margin-bottom: 12px; font-weight: 400; white-space: pre-wrap; }
+        
+        /* ▼▼▼ 修正 ▼▼▼ (Grid から Flex に変更) */
+        .slide-body { 
+            display: flex; /* grid から変更 */
+            gap: 30px; /* 50px から変更 (4カラム時に備える) */
+            flex-grow: 1; 
+            align-items: stretch; /* 追加 */
+        }
+        .column { 
+            padding: 20px; /* 0 から変更 */
+            flex: 1; /* カラムが均等に広がるように */
+            display: flex; 
+            flex-direction: column; /* カラム内を縦に並べる */
+            
+            /* カードデザインを追加 */
+            background: var(--card-bg-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-top: 4px solid var(--accent-color);
+        }
+        .column h2 { 
+            font-size: 24px; /* 28px から変更 (4カラム時に備える) */
+            color: var(--text-color); 
+            margin: 0 0 20px; 
+            font-weight: 700; 
+            text-align: center; 
+        }
+        .column ul { 
+            padding-left: 20px; /* 30px から変更 */
+            margin: 0; 
+            flex-grow: 1; /* リストが残りの高さを埋めるように */
+        }
+        .column li { 
+            font-size: 18px; /* 20px から変更 */
+            color: var(--sub-text-color); 
+            line-height: 1.7; /* 1.8 から変更 */
+            margin-bottom: 10px; /* 12px から変更 */
+            font-weight: 400; 
+            white-space: pre-wrap; 
+        }
+        /* ▲▲▲ 修正 ▲▲▲ */
         .column li::marker { color: var(--accent-color); font-size: 1.2em; }
     </style>
 </head>
@@ -415,15 +453,8 @@ export const standardTemplates = {
     <div class="slide-container">
         <div class="slide-header"><h1>{title}</h1></div>
         <div class="slide-body">
-            <div class="column">
-                <h2>{col_1_title}</h2>
-                <ul>{col_1_items_html}</ul>
+            {comparison_columns_html}
             </div>
-            <div class="column">
-                <h2>{col_2_title}</h2>
-                <ul>{col_2_items_html}</ul>
-            </div>
-        </div>
     </div>
 </body>
 </html>`,
@@ -533,6 +564,80 @@ export const standardTemplates = {
             <table>
                 {table_html}
             </table>
+        </div>
+    </div>
+</body>
+</html>`,
+
+  // 11. 数式 + 解説 (上下分割)
+  math_basic: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        /* KaTeX CSS (数式表示に必須) */
+        @import url('https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css');
+
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
+            --bg-color-light: #FFFFFF; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        .slide-container { 
+            width: 1280px; height: 720px; box-sizing: border-box; 
+            padding: 60px 80px; 
+            background: var(--bg-color); 
+            display: flex; flex-direction: column; 
+        }
+        .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        
+        /* 解説文エリア */
+        .content { 
+            font-size: 22px; 
+            line-height: 1.7;
+            color: var(--sub-text-color); 
+            font-weight: 400; 
+            height: 40%; /* 高さを制限 */
+            overflow: auto; /* 内容が多い場合はスクロール */
+            padding-bottom: 20px;
+        }
+        /* marked.parse() が生成するタグのスタイル */
+        .content p { margin: 0 0 16px 0; line-height: 1.7; }
+        .content ul { margin: 0 0 16px 0; padding-left: 1.5em; }
+        .content li { margin: 0 0 12px 0; line-height: 1.7; }
+
+        /* 数式エリア */
+        .formula-container {
+            flex-grow: 1; /* 残りの高さをすべて使用 */
+            display: flex;
+            align-items: center; /* 垂直方向中央揃え */
+            justify-content: center; /* 水平方向中央揃え */
+            overflow: hidden;
+            
+            /* KaTeX のデフォルトフォントサイズを上書き */
+            font-size: 48px; /* 数式の基本サイズを大きく */
+            color: var(--text-color); /* 数式の色をテキストカラーに合わせる */
+        }
+        
+        /* KaTeXが生成するkatex-displayクラス（ブロック数式）のスタイル */
+        .formula-container .katex-display {
+            margin: 0; /* 中央揃えのためマージンをリセット */
+        }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        
+        <div class="content">{content}</div> <div class="formula-container">
+            {formula}
         </div>
     </div>
 </body>
