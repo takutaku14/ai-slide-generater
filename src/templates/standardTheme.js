@@ -626,12 +626,12 @@ export const standardTemplates = {
         .formula-container {
             flex-grow: 1; /* 残りの高さをすべて使用 */
             display: flex;
-            align-items: center; /* 垂直方向中央揃え */
+            align-items: top; /* 垂直方向中央揃え */
             justify-content: center; /* 水平方向中央揃え */
             overflow: hidden;
             
             /* KaTeX のデフォルトフォントサイズを上書き */
-            font-size: 48px; /* 数式の基本サイズを大きく */
+            font-size: 28px; /* 数式の基本サイズを大きく */
             color: var(--text-color); /* 数式の色をテキストカラーに合わせる */
         }
         

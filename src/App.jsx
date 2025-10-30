@@ -923,9 +923,21 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
   );
 };
 
-const DownloadButton = ({ onDownload }) => (
-    <div className="bg-black/20 p-4 rounded-lg flex justify-center">
-        <button onClick={onDownload} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium rounded-md transition-colors">ZIPファイルをダウンロード</button>
+const DownloadButton = ({ onDownload, onDownloadPdf, isGeneratingPdf }) => (
+    <div className="bg-black/20 p-4 rounded-lg flex justify-center space-x-4">
+        <button 
+          onClick={onDownload} 
+          className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium rounded-md transition-colors"
+        >
+          ZIPファイルをダウンロード
+        </button>
+        <button 
+          onClick={onDownloadPdf} 
+          className={`px-6 py-2 bg-green-700 hover:bg-green-600 text-sm font-medium rounded-md transition-colors ${isGeneratingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={isGeneratingPdf}
+        >
+          {isGeneratingPdf ? 'PDFを生成中...' : 'PDFをダウンロード'}
+        </button>
     </div>
 );
 
@@ -1136,7 +1148,11 @@ const ChatPanel = ({ chatState }) => (
         />
       }
 
-      {chatState.appStatus === APP_STATUS.ALL_SLIDES_GENERATED && <DownloadButton onDownload={chatState.handleDownloadZip} />}
+      {chatState.appStatus === APP_STATUS.ALL_SLIDES_GENERATED && <DownloadButton 
+        onDownload={chatState.handleDownloadZip} 
+        onDownloadPdf={chatState.handleDownloadPdf}
+        isGeneratingPdf={chatState.isGeneratingPdf}
+      />}
 
       <div ref={chatState.chatEndRef} />
     </div>
@@ -1385,6 +1401,7 @@ export default function App() {
   const [thinkingState, setThinkingState] = useState(null);
 
   const [currentTotalWaitTime, setCurrentTotalWaitTime] = useState(0);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); 
 
   const chatEndRef = useRef(null);
 
@@ -2687,6 +2704,61 @@ export default function App() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (generatedSlides.length === 0) {
+      setMessages(prev => [...prev, { type: 'system', text: 'PDF化するスライドがありません。'}]);
+      return;
+    }
+    
+    // ★重要★ ここに、デプロイしたCloud RunのURLを設定してください
+    const BACKEND_URL = 'https://slide-pdf-backend-306538767892.asia-northeast1.run.app/generate-pdf';
+    
+    if (BACKEND_URL.includes('your-cloud-run-service-url')) {
+      setMessages(prev => [...prev, { type: 'system', text: 'エラー: App.jsx の BACKEND_URL を設定してください。'}]);
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    setProcessingStatus('PDFを生成中... (最大1〜2分かかります)');
+    setMessages(prev => [...prev, { type: 'system', text: 'バックエンドにPDF生成をリクエストしました...'}]);
+
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ htmls: generatedSlides })
+      });
+
+      if (!response.ok) {
+        // APIからエラーが返ってきた場合
+        const errorText = await response.text();
+        throw new Error(`PDF生成に失敗しました: ${errorText}`);
+      }
+
+      // PDFデータ (Blob) を取得
+      const blob = await response.blob();
+
+      // ダウンロードリンクを生成してクリック
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'merged_slides.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setMessages(prev => [...prev, { type: 'system', text: 'PDFのダウンロードが完了しました。'}]);
+
+    } catch (error) {
+      console.error("PDF Download failed:", error);
+      setMessages(prev => [...prev, { type: 'system', text: `PDF生成エラー: ${error.message}`}]);
+    } finally {
+      setIsGeneratingPdf(false);
+      setProcessingStatus('');
+    }
+  };
+
   const handleRegenerateCurrentSlide = () => {
     // 承認待ち以外のステータスでは何もしない
     if (appStatus !== APP_STATUS.SLIDE_GENERATED) return;
@@ -2815,7 +2887,10 @@ export default function App() {
               handlePreview, 
               handleRegenerateCurrentSlide, 
               handleReturnToOutline, 
-              handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor
+              handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor,
+
+              handleDownloadPdf,
+              isGeneratingPdf
           }} />
         </div> 
       </main>
