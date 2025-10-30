@@ -537,8 +537,8 @@ export const standardTemplates = {
         }
         th, td {
             border: 1px solid var(--sub-text-color);
-            padding: 10px;
-            font-size: 18px;
+            padding: 8px;
+            font-size: 16px; 
             color: var(--sub-text-color);
             word-wrap: break-word; /* セル内でテキストを改行 */
             text-align: left;
