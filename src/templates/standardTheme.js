@@ -613,6 +613,15 @@ export const standardTemplates = {
         .content ul { margin: 0 0 16px 0; padding-left: 1.5em; }
         .content li { margin: 0 0 12px 0; line-height: 1.7; }
 
+        .content strong {
+            font-weight: 700;
+            color: var(--text-color); /* AIが強調した部分を目立たせる */
+        }
+        .content a { /* リンク（もしあれば） */
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
         /* 数式エリア */
         .formula-container {
             flex-grow: 1; /* 残りの高さをすべて使用 */
