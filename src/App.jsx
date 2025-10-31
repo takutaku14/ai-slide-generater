@@ -38,7 +38,38 @@ const PROMPTS = {
 ### テキスト
 ${text}`,
 
-  createOutline: (markdown, includeAgenda, useSectionHeaders) => {
+  analyzeContext: (text) => `### 指示
+あなたは、与えられたドキュメントの「目的」と「対象者」を分析する専門家です。
+以下のテキストを読み、「スライド生成AIの思考フレームワーク」に基づいて、この資料の主要な「目的」と「対象者」を推測し、指定されたJSON形式で出力してください。
+
+### スライド生成AIの思考フレームワーク（抜粋）
+1.  **目的 (Purpose)**
+    * \`approval\`: 承認・合意形成（例：提案書、企画書）
+    * \`information_sharing\`: 情報共有・記録（例：報告書、議事録）
+    * \`education\`: 教育・理解促進（例：マニュアル、ガイドライン）
+2.  **対象者 (Audience)**
+    * \`expert\`: 専門家・担当者（専門用語が多い、データ中心）
+    * \`manager\`: 経営層・マネージャー（ビジョン、戦略、KGIなど）
+    * \`beginner\`: 一般・初心者（平易な言葉遣い、基礎的な内容）
+
+### 思考プロセス
+1.  テキスト全体をスキャンし、キーワード（例：「～提案書」「～報告書」）や文体、使用語彙レベルを分析します。
+2.  上記フレームワークに基づき、「目的」と「対象者」をそれぞれ1つずつ特定します。
+3.  特定した結果を、厳格なJSON形式で出力します。
+
+### 出力形式 (JSON)
+- **最重要**: 出力はJSONオブジェクトの文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
+{
+  "purpose": "(approval, information_sharing, education のいずれか)",
+  "audience": "(expert, manager, beginner のいずれか)"
+}
+
+### 分析対象のテキスト
+${text}
+`
+,
+
+  createOutline: (markdown, includeAgenda, useSectionHeaders, context) => { // ★ 引数は変更なし
     const agendaCondition = includeAgenda
       ? `- 2枚目は必ず"アジェンダ"ページとし、\`template\`は\`agenda\`を選択してください。\`summary\`には3枚目以降のタイトルを改行区切りでリストアップしてください。\n- **【アジェンダの分割ルール】**: アジェンダの項目（\`summary\`にリストアップする3枚目以降のタイトル）が**6個を超えた**場合、\`template\`が\`agenda\`のスライドを**複数枚に分割**してください。\n- 1枚目のタイトルは『**アジェンダ (1/2)**』、2枚目は『**アジェンダ (2/2)**』のように、必ず連番を付与してください。\n- 各アジェンダスライドには、最大6項目までのリストを配置してください。`
       : '- **アジェンダページは絶対に作成しないでください。**';
@@ -46,26 +77,70 @@ ${text}`,
       ? '- Markdownの主要な見出し（章やセクション）の前に、`template`が`section_header`のスライドを自動で挿入してください。'
       : '- `section_header`テンプレートは使用しないでください。';
 
+    // ▼▼▼ Phase 3 (Step 3.1) 修正 ▼▼▼
+    const docContext = context || { purpose: 'information_sharing', audience: 'expert' };
+    
+    // AIに「思考フレームワーク」そのものを指示する
+    const contextInstruction = `### 分析されたドキュメントの文脈
+- **目的 (Purpose)**: \`${docContext.purpose}\`
+- **対象者 (Audience)**: \`${docContext.audience}\`
+
+### 文脈に基づくストーリーラインの再構築（最重要）
+あなたは、元のMarkdownの順序に縛られる必要はありません。
+以下の「思考フレームワーク」に基づき、分析した「目的」と「対象者」にとって**最も説得力のあるストーリーライン**に、Markdownの内容を**並べ替え（再構築）**てください。
+
+#### 思考フレームワーク: ステップ3（抜粋）
+1.  **目的が \`approval\` (承認・合意形成) の場合:**
+    * **判断:** 元の順序を**破壊し、再構築**する。（説得力が重要）
+    * **採用すべき型:** 「結論ファースト型」（[結論]→[根拠]→[具体策]→[結論]） または「問題解決型」（[背景・課題]→[原因]→[解決策]→[実行計画]） を適用してください。
+
+2.  **目的が \`education\` (教育・理解促進) の場合:**
+    * **判断:** 元の順序を**尊重する**ことを基本とするが、ステップが分かりにくい場合は再構築する。
+    * **採用すべき型:** 「時系列型」（[過去]→[現在]→[未来]） や「ステップバイステップ型」 を適用してください。
+
+3.  **目的が \`information_sharing\` (情報共有・記録) の場合:**
+    * **判断:** 元の順序を**厳格に尊重する**。（元の順序が重要）
+    * **採用すべき型:** 元のMarkdownの目次構成（時系列やトピック別）をそのまま維持してください。
+
+4.  **対象者への最適化:**
+    * 対象者が \`manager\` (経営層) の場合: 情報を大胆に要約し、**キラーフレーズ（結論）**やサマリーを優先的に抽出してください。
+    * 対象者が \`expert\` (専門家) の場合: 詳細なデータや根拠をある程度残してください。
+    * 対象者が \`beginner\` (初心者) の場合: 視覚的な比率を高めることを意識し、平易な言葉で要約してください。
+`;
+    // ▲▲▲ 修正ここまで ▲▲▲
+
     return `### 指示
-あなたはプロのプレゼンテーション構成作家です。以下のMarkdownテキストを分析し、最も効果的なプレゼンテーションの構成案をJSON形式で作成してください。
+あなたはプロのプレゼンテーション構成作家です。以下のMarkdownテキストと「文脈」を分析し、最も効果的なプレゼンテーションの構成案をJSON形式で作成してください。
+
+${contextInstruction} // ★ 強化した指示を挿入
 
 ### 利用可能なテンプレート
 - \`title_slide\`: 表紙
 - \`agenda\`: 目次
 - \`section_header\`: 章の区切り
-- \`content_basic\`: **単純な箇条書き**（番号なし・あり両方）のための最も標準的なテンプレート。
-- \`content_with_diagram\`: 文章と図解（インフォグラフィック）。
-- \`math_basic\`: **単一の主要な数式**とその解説（上下分割）。
+- \`highlighted_number\`: **【NEW】単一の最重要数値**（KPI、達成率など）を画面中央に大きく表示。
+- \`table_basic\`: **表形式（テーブル）**。機能一覧、比較表、数値データなど。
+- \`comparison\`: **2〜4つの項目（メリット/デメリット、A案/B案/C案など）を比較・対比**するための専用テンプレート。
 - \`three_points\`: 3つの要点を横並びで表示。
 - \`vertical_steps\`: 時系列やステップ。
-- \`comparison\`: **2〜4つの項目（メリット/デメリット、A案/B案/C案など）を比較・対比**するための専用テンプレート。
-- \`table_basic\`: **表形式（テーブル）**。機能一覧、比較表、数値データなど。
+- \`math_basic\`: **単一の主要な数式**とその解説（上下分割）。
+- \`quote\`: **【NEW】重要な結論、キラーフレーズ、引用文**を中央に表示。
+- \`content_with_diagram\`: 文章と図解（インフォグラフィック）。
+- \`content_basic\`: **単純な箇条書き**（番号なし・あり両方）のための最も標準的なテンプレート。
 - \`summary_or_thankyou\`: 最後のまとめ、または「ご聴取ありがとうございました」用。
 
 ### テンプレート選択の思考プロセスと具体例
 あなたはMarkdownの各セクションを分析する際、以下の優先順位と思考プロセスでテンプレートを厳格に選択してください。
 
-1.  **[最優先] 表形式か？**: 内容が機能一覧、数値データ、仕様比較など、明らかに表（テーブル）で表現するのが最適な場合は、必ず \`table_basic\` を選択します。
+1.  **[最優先] 単一の重要数値か？**: 内容が「売上達成率: 98%」「KPI: 150件」のように、**単一の最重要数値**をハイライトすべき場合は、必ず \`highlighted_number\` を選択します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### 今期の最重要KPI
+        今期の売上達成率は98%に達しました。これは目標をほぼ達成したことを示します...
+        \`\`\`
+    * **出力テンプレート**: \`highlighted_number\`
+
+2.  **[次点] 表形式か？**: 内容が機能一覧、数値データ、仕様比較など、明らかに表（テーブル）で表現するのが最適な場合は、必ず \`table_basic\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 機能比較
@@ -76,7 +151,7 @@ ${text}`,
         \`\`\`
     * **出力テンプレート**: \`table_basic\`
 
-2.  **[次点] 比較・対比か？**: 内容が **2〜4つの項目**（例：メリット/デメリット、A案/B案、従来/新規、プランA/B/C）を明確に比較・対比している場合は、必ず \`comparison\` を選択します。
+3.  **[次点] 比較・対比か？**: 内容が **2〜4つの項目**（例：メリット/デメリット、A案/B案、従来/新規、プランA/B/C）を明確に比較・対比している場合は、必ず \`comparison\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 従来システムとの比較
@@ -89,7 +164,7 @@ ${text}`,
         \`\`\`
     * **出力テンプレート**: \`comparison\`
 
-3.  **[次点] 3つの要点か？**: 内容が3つの主要な特徴、ステップ、利点を並列で紹介している場合は、\`three_points\` の使用を優先します。
+4.  **[次点] 3つの要点か？**: 内容が3つの主要な特徴、ステップ、利点を並列で紹介している場合は、\`three_points\` の使用を優先します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 3つのメリット
@@ -99,7 +174,7 @@ ${text}`,
         \`\`\`
     * **出力テンプレート**: \`three_points\`
 
-4.  **[次点] ステップか？**: 内容が時系列や手順を示している場合は、\`vertical_steps\` を選択します。
+5.  **[次点] ステップか？**: 内容が時系列や手順を示している場合は、\`vertical_steps\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 導入プロセス
@@ -109,7 +184,7 @@ ${text}`,
         \`\`\`
     * **出力テンプレート**: \`vertical_steps\`
 
-5.  **[次点] 主要な数式か？**: 内容が**単一の主要な数式ブロック（$$...$$）**とその解説文で構成されている場合（数式が主題の場合）、必ず \`math_basic\` を選択します。
+6.  **[次点] 主要な数式か？**: 内容が**単一の主要な数式ブロック（$$...$$）**とその解説文で構成されている場合（数式が主題の場合）、必ず \`math_basic\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 二次方程式の解
@@ -119,14 +194,22 @@ ${text}`,
         \`\`\`
     * **出力テンプレート**: \`math_basic\`
 
-6.  **[次点] 図解が必要か？**: 内容が抽象的な概念や関係性（例：システム構成図、相関関係）を含み、テキストだけでは伝わりにくい場合、**かつ上記の数式テンプレート（math_basic）に当てはまらない場合**は、\`content_with_diagram\` を選択します。    * **入力例 (Markdown)**:
+7.  **[次点] 重要な引用か？**: 内容が本文中の「キラーフレーズ」や「重要な結論」、「...と述べた」のような引用文であると判断した場合、必ず \`quote\` を選択します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        ...以上の分析から、我々はAプランが最適解であると結論付けた。
+        \`\`\`
+    * **出力テンプレート**: \`quote\`
+
+8.  **[次点] 図解が必要か？**: 内容が抽象的な概念や関係性（例：システム構成図、相関関係）を含み、テキストだけでは伝わりにくい場合、**かつ上記の専用テンプレートに当てはまらない場合**は、\`content_with_diagram\` を選択します。
+    * **入力例 (Markdown)**:
         \`\`\`markdown
         #### システム構成
         本システムは、ユーザー、アプリケーションサーバー、データベースの3層構造で構成されており...
         \`\`\`
     * **出力テンプレート**: \`content_with_diagram\`
 
-7.  **[最終手段] 単純なリストか？**: 上記のいずれにも当てはまらない、単純な箇条書きや説明文の場合は、\`content_basic\` を選択します。
+9.  **[最終手段] 単純なリストか？**: 上記のいずれにも当てはまらない、単純な箇条書きや説明文の場合は、\`content_basic\` を選択します。
 
 ### 条件
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
@@ -134,7 +217,7 @@ ${text}`,
 - **【文字数制限】**: スライドのタイトル（\`title\`キー）は、日本語で**27文字以内**の簡潔なものにしてください。長すぎて2行になるタイトルは避けてください。
 - **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（- や 1.）を使用してください。
 
-- **【強調ルール】**: \`summary\`, \`items\`, \`points\`, \`columns\`, \`table\` の各テキストを生成する際、**プレゼンテーションで特に重要となるキーワード、専門用語、またはキーとなる数値**は、必ずMarkdownの太字記法（\`**キーワード**\`）で囲んで積極的に強調してください。
+- **【強調ルール】**: \`summary\`, \`items\`, \`points\`, \`columns\`, \`table\`, \`description\` の各テキストを生成する際、**プレゼンテーションで特に重要となるキーワード、専門用語、またはキーとなる数値**は、必ずMarkdownの太字記法（\`**キーワード**\`）で囲んで積極的に強調してください。
 - **【用語解説ルール】**: もし \`用語：その解説\` のような形式で記述する場合は、必ず \`**用語**：その解説\` のように、コロン（：）の前の用語部分を太字にしてください。
 
 - **【数式表示ルール】**: もし内容に数式、変数、または計算式（例： \`y = ax + b\` や \`費用 - 収益\`）が含まれる場合は、**必ず KaTeX 形式**で記述してください。
@@ -200,6 +283,18 @@ ${text}`,
   - **\`formula\`キーにKaTeX形式の単一の数式ブロック**（例: \`$$ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} $$\`）を必ず記述してください。
   - **【最重要・重複排除】\`summary\` キーの解説文には、\`formula\`キーに記述する数式（またはそのインライン版 $...$）を**含めないでください**。
   - （例：\`...以下の式で表されます。 $x=y$\` という文章は、\`...以下の式で表されます。\` のように、数式を省略して記述してください。）
+
+- **【▼▼▼ 修正点（NEW） ▼▼▼】**
+- **【quote ルール】**
+- \`quote\` テンプレートを使用する場合、
+  - **本文（引用文、キラーフレーズ）を必ず \`summary\` キーに記述**してください。
+  - AIの判断で、引用文の**前後に日本語の引用符（「」）**を適切に付与してください。
+- **【highlighted_number ルール】**
+- \`highlighted_number\` テンプレートを使用する場合、
+  - **\`summary\`キーは絶対に空（""）**にしてください。
+  - 代わりに **\`number\` キー** で、**最も強調したい単一の数値・文字列**（例: "98%", "150件", "OK"）を必ず生成してください。
+  - **\`description\` キー** で、その数値の**簡潔な説明文**（例: "売上達成率", "今期のKPI"）を必ず生成してください。
+- **【▲▲▲ 修正点ここまで ▲▲▲】**
 ${agendaCondition}
 ${sectionHeaderCondition}
 
@@ -209,6 +304,8 @@ ${sectionHeaderCondition}
 - **最重要**: 出力はJSON配列の文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
 [
   { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
+  { "title": "今期の最重要KPI", "summary": "", "template": "highlighted_number", "number": "98%", "description": "売上達成率" },
+  { "title": "我々の結論", "summary": "「我々の最適解は、Aプランである」", "template": "quote" },
   { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { "needed": true, "description": "システム概要の構成図" } },
   { "title": "二次方程式の解", "summary": "この公式は...", "template": "math_basic", "formula": "$$ x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} $$" },
   { 
@@ -425,6 +522,7 @@ ${concept}`
 
 /** 各API待機ステップの「思考プロセス」を定義 */
 const STRUCTURING_STEPS = [
+  { key: 'analyzing_context', text: 'ドキュメントの文脈（目的・対象者）を分析中...' },
   { key: 'cleaning', text: 'テキストをクリーンアップ中... (例: 「ドキュ メント」→「ドキュメント」)' },
   { key: 'analyzing', text: 'ドキュメントの論理構造を解析中... (見出し、段落の識別)' },
   { key: 'formatting', text: 'Markdown形式に再構成中...' }
@@ -443,6 +541,20 @@ const SLIDE_GENERATION_STEPS = [
   { key: 'designing', text: 'インフォグラフィック/レイアウトをデザイン中...' },
   { key: 'coding', text: 'HTMLコードを組み立て中...' }
 ];
+
+/** 文脈分析の結果（キー）を日本語に翻訳するためのマップ */
+const CONTEXT_TRANSLATIONS = {
+  purpose: {
+    'approval': '承認・合意形成',
+    'information_sharing': '情報共有・記録',
+    'education': '教育・理解促進'
+  },
+  audience: {
+    'expert': '専門家・担当者',
+    'manager': '経営層・マネージャー',
+    'beginner': '一般・初心者'
+  }
+};
 
 // --- アイコンコンポーネント ---
 const SettingsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 hover:text-white transition-colors"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>);
@@ -865,6 +977,38 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                     placeholder="例: $$ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} $$"
                   />
                 </div>
+              </div>
+            ) : slide.template === 'highlighted_number' ? (
+              <div className="space-y-3 mt-3">
+                <div className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                  <label className="text-xs font-bold text-gray-400 mb-2 block">強調する数値 (Number)</label>
+                  <input 
+                    type="text" 
+                    value={slide.number || ''} 
+                    onChange={(e) => onChange(index, 'number', e.target.value)} 
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                    placeholder="例: 98%"
+                  />
+                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">数値の説明 (Description)</label>
+                  <input 
+                    type="text" 
+                    value={slide.description || ''} 
+                    onChange={(e) => onChange(index, 'description', e.target.value)} 
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                    placeholder="例: 売上達成率"
+                  />
+                </div>
+              </div>
+            ) : slide.template === 'quote' ? (
+              <div>
+                <label className="text-xs font-bold text-gray-400 mt-3 mb-2 block">引用文・キラーフレーズ (Summary)</label>
+                <textarea 
+                  value={slide.summary || ''} 
+                  onChange={(e) => onChange(index, 'summary', e.target.value)} 
+                  rows={3} 
+                  className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
+                  placeholder="例: 「我々の最適解は、Aプランである」"
+                />
               </div>
             ) : (
               <div>
@@ -1398,6 +1542,8 @@ export default function App() {
 
   const [approvedOutlineSnapshot, setApprovedOutlineSnapshot] = useState([]);
   
+  const [documentContext, setDocumentContext] = useState(null); // { purpose: '...', audience: '...' }
+
   const [thinkingState, setThinkingState] = useState(null);
 
   const [currentTotalWaitTime, setCurrentTotalWaitTime] = useState(0);
@@ -1706,27 +1852,39 @@ export default function App() {
     setProcessingStatus('テキストを構造化中...');
     setApiErrorStep(null); // 再試行の前にエラー状態をリセット
     
-    setOriginalExtractedText(text); // ★追加: 構造化前の生テキストを保存
+    setOriginalExtractedText(text); // ★生テキストを保存
     
     // 1. 待機時間を計算し、Stateにセット
+    // (元のロジックを流用)
     const calculatedWaitTime = Math.max(4000, Math.min(180000, text.length * 1.8));
     setCurrentTotalWaitTime(calculatedWaitTime);
-    const stepWaitTime = calculatedWaitTime / 3; // 3ステップで分割
+    
+    // ★ 4ステップで分割 (元の 3 から 4 に変更)
+    const stepWaitTime = calculatedWaitTime / 4; 
 
-    // 2. APIコール (Promise)
-    const apiPromise = callGeminiApi(PROMPTS.structureText(text), 'gemini-2.5-flash-lite', 'テキスト構造化');
+    // 2. APIコール (Promise) を2つ準備
+    // ★ 2.1: 【NEW】 文脈分析API
+    const contextPrompt = PROMPTS.analyzeContext(text);
+    const contextApiPromise = callGeminiApi(contextPrompt, 'gemini-2.5-flash-lite', '文脈分析');
+
+    // ★ 2.2: 【既存】 テキスト構造化API
+    const structurePrompt = PROMPTS.structureText(text);
+    const structureApiPromise = callGeminiApi(structurePrompt, 'gemini-2.5-flash-lite', 'テキスト構造化');
     
     // 3. ダミー進捗 (Promise)
+    // ★ 4ステップ（analyzing_context を含む）に修正
     const dummyProgressPromise = (async () => {
       try {
-        setThinkingState(STRUCTURING_STEPS[0].key); // cleaning
+        setThinkingState(STRUCTURING_STEPS[0].key); // analyzing_context
         await new Promise(resolve => setTimeout(resolve, stepWaitTime));
 
-        setThinkingState(STRUCTURING_STEPS[1].key); // analyzing
+        setThinkingState(STRUCTURING_STEPS[1].key); // cleaning
         await new Promise(resolve => setTimeout(resolve, stepWaitTime));
 
-        setThinkingState(STRUCTURING_STEPS[2].key); // formatting
-        // 最後のステップの待機時間もきっちり待つ (要件2)
+        setThinkingState(STRUCTURING_STEPS[2].key); // analyzing
+        await new Promise(resolve => setTimeout(resolve, stepWaitTime));
+
+        setThinkingState(STRUCTURING_STEPS[3].key); // formatting
         await new Promise(resolve => setTimeout(resolve, stepWaitTime)); 
       } catch (e) {
         console.error("Dummy progress failed", e);
@@ -1734,23 +1892,68 @@ export default function App() {
     })();
 
     try {
-      // 4. 両方の完了を待つ
-      const [apiResult] = await Promise.all([apiPromise, dummyProgressPromise]);
+      // 4. 3つのPromise（API 2つ + ダミー進捗 1つ）すべての完了を待つ
+      const [contextResult, structureResult] = await Promise.all([
+        contextApiPromise, 
+        structureApiPromise, 
+        dummyProgressPromise
+      ]);
       
       // 5. 両方完了したら後処理
       setThinkingState(null);
       setIsProcessing(false);
       setCurrentTotalWaitTime(0); // Stateリセット
 
-      if (apiResult && !apiResult.error) {
-        setStructuredMarkdown(apiResult);
+      let hasError = false;
+
+      // 6. 【NEW】 文脈分析APIの結果を処理
+      if (contextResult && !contextResult.error) {
+        try {
+          const parsedContext = JSON.parse(contextResult);
+          setDocumentContext(parsedContext); // ★ State に保存
+          console.log('[INFO] Document Context Analyzed:', parsedContext);
+
+          // ▼▼▼ ここから修正・追加 ▼▼▼
+          // 翻訳マップを使って日本語の説明を取得
+          const purposeJp = CONTEXT_TRANSLATIONS.purpose[parsedContext.purpose] || parsedContext.purpose;
+          const audienceJp = CONTEXT_TRANSLATIONS.audience[parsedContext.audience] || parsedContext.audience;
+          
+          // チャットに分析結果を表示する
+          setMessages(prev => [...prev, { 
+            type: 'system', 
+            text: `文脈分析が完了しました。\n- **目的**: ${purposeJp}\n- **対象者**: ${audienceJp}`
+          }]);
+          // ▲▲▲ 修正・追加ここまで ▲▲▲
+
+        } catch (e) {
+          console.error('[FATAL] Failed to parse document context JSON:', e);
+          setMessages(prev => [...prev, { type: 'system', text: '文脈分析の結果解析に失敗しました。' }]);
+          hasError = true; // エラーフラグ
+        }
+      } else {
+        // API自体がエラーを返した場合
+        setMessages(prev => [...prev, { type: 'system', text: contextResult ? contextResult.error : '文脈分析中に予期せぬエラーが発生しました。' }]);
+        hasError = true; // エラーフラグ
+      }
+
+      // 7. 【既存】 構造化APIの結果を処理
+      if (structureResult && !structureResult.error) {
+        setStructuredMarkdown(structureResult);
         setAppStatus(APP_STATUS.STRUCTURED);
         setMessages(prev => [...prev, { type: 'system', text: 'テキストの構造化が完了しました。' }]);
       } else {
         // エラーハンドリング
         setApiErrorStep('structure');
-        setMessages(prev => [...prev, { type: 'system', text: apiResult ? apiResult.error : '予期せぬエラーが発生しました。' }]);
+        setMessages(prev => [...prev, { type: 'system', text: structureResult ? structureResult.error : '予期せぬエラーが発生しました。' }]);
       }
+
+      // どちらかでエラーがあった場合、Markdown承認ステップには進ませない
+      if(hasError) {
+         setApiErrorStep('structure'); // 共通のエラーステップに設定
+         setAppStatus(APP_STATUS.INITIAL); // 初期状態に戻すか、エラー状態にする
+         setIsProcessing(false);
+      }
+
     } catch (error) {
       // APIエラー (callGeminiApiがthrowした場合) やその他の予期せぬエラー
       console.error("[FATAL] Error during structuring:", error);
@@ -1836,13 +2039,12 @@ export default function App() {
     setProcessingStatus('構成案を生成中...');
     setApiErrorStep(null);
 
-    // [ここから変更]
     // 1. 待機時間を計算し、Stateにセット
     const calculatedWaitTime = Math.max(5000, Math.min(180000, structuredMarkdown.length * 1.4));    setCurrentTotalWaitTime(calculatedWaitTime);
     const stepWaitTime = calculatedWaitTime / 5; // 5ステップで分割
 
     // 2. APIコール (Promise)
-    const prompt = PROMPTS.createOutline(structuredMarkdown, includeAgenda, useSectionHeaders);
+    const prompt = PROMPTS.createOutline(structuredMarkdown, includeAgenda, useSectionHeaders, documentContext);
     const apiPromise = callGeminiApi(prompt, 'gemini-2.5-flash-lite', '構成案生成');
 
     // 3. ダミー進捗 (Promise)
@@ -1902,8 +2104,27 @@ export default function App() {
                setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
                return; // ここで処理を中断
             }
-          } else {
-             // 5. エスケープ文字以外のエラーの場合
+          } 
+          // ▼▼▼ 【NEW】「Bad control character」エラーの修復ロジック ▼▼▼
+          else if (error.message.includes('Bad control character')) {
+            console.warn('[WARN] JSON parse failed due to bad control character. Retrying with newline/tab fix...');
+            try {
+              // 3. 改行(\n), タブ(\t) などの制御文字を強制的に半角スペースに置換
+              const fixedResult = result.replace(/[\n\r\t]/g, ' ');
+              outline = JSON.parse(fixedResult);
+              // ユーザーに自動修正したことを通知
+              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIの応答形式(制御文字)を修正しました。改行が失われた可能性があります。" }]);
+            } catch (fixError) {
+               // 4. 修正してもパースに失敗した場合
+               console.error('[FATAL] Control character fix failed.', fixError);
+               setApiErrorStep('outline');
+               setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+               return; // ここで処理を中断
+            }
+          } 
+          // ▲▲▲ 修正ここまで ▲▲▲
+          else {
+             // 5. 上記以外のエラーの場合
              setApiErrorStep('outline');
              setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
              return; // ここで処理を中断
@@ -1920,9 +2141,19 @@ export default function App() {
             if (newSlide.template === 'content_basic') {
                 if ((!newSlide.items || (Array.isArray(newSlide.items) && newSlide.items.length === 0)) && 
                     (newSlide.summary && typeof newSlide.summary === 'string' && newSlide.summary.trim().length > 0)) {
-                    newSlide.items = newSlide.summary.split('\n')
+                    
+                    // ▼▼▼ 修正: `Bad control character`対策で改行が失われている場合を考慮 ▼▼▼
+                    // もし半角スペース区切りになっていたら、それを改行として扱う
+                    // (ただし、summary が "item1 item2 item3" のようになることを想定)
+                    const potentialItems = newSlide.summary.includes('\n')
+                        ? newSlide.summary.split('\n')
+                        : newSlide.summary.split(' '); // 改行がなければスペースで分割
+                    
+                    newSlide.items = potentialItems
                         .map(item => item.trim())
                         .filter(item => item.length > 0);
+                    // ▲▲▲ 修正ここまで ▲▲▲
+
                 }
                 newSlide.summary = ""; 
             }
@@ -1934,7 +2165,11 @@ export default function App() {
             else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {
                 if ((!newSlide.summary || (typeof newSlide.summary === 'string' && newSlide.summary.trim().length === 0)) && 
                     (newSlide.items && Array.isArray(newSlide.items) && newSlide.items.length > 0)) {
-                    newSlide.summary = newSlide.items.join('\n');
+                    
+                    // ▼▼▼ 修正: こちらも同様に、半角スペース区切りを許容 ▼▼▼
+                    const separator = newSlide.items.some(item => item.includes('\n')) ? '\n' : ' ';
+                    newSlide.summary = newSlide.items.join(separator);
+                    // ▲▲▲ 修正ここまで ▲▲▲
                 }
                 newSlide.items = null;
                 newSlide.points = null;
@@ -1976,7 +2211,13 @@ export default function App() {
           if (hasAgenda) {
             // 2枚目がアジェンダの場合、項目数チェックと分割を行う
             const targetAgenda = finalOutline[1];
-            const items = (targetAgenda.summary || '').split('\n').filter(item => item.trim().length > 0);
+            
+            // ▼▼▼ 修正: `Bad control character`対策で改行が失われている場合を考慮 ▼▼▼
+            // (summary が "item1 item2 item3" となっている可能性)
+            const items = (targetAgenda.summary || '').includes('\n')
+                ? (targetAgenda.summary || '').split('\n').filter(item => item.trim().length > 0)
+                : (targetAgenda.summary || '').split(' ').filter(item => item.trim().length > 0);
+            // ▲▲▲ 修正ここまで ▲▲▲
 
             if (items.length > agendaMaxItems) {
               // 1. 強制分割処理
@@ -1991,7 +2232,11 @@ export default function App() {
                 newAgendaSlides.push({
                   ...targetAgenda, // 元スライドの情報をコピー (templateなど)
                   title: `${baseTitle} (${i + 1}/${totalParts})`,
-                  summary: partItems.join('\n'),
+                  
+                  // ▼▼▼ 修正: agenda は改行区切りでなければならないため、join('\n') で結合 ▼▼▼
+                  summary: partItems.join('\n'), 
+                  // ▲▲▲ 修正ここまで ▲▲▲
+                  
                   items: null, // アジェンダはsummaryのみ使用
                   points: null,
                   columns: null,
@@ -2129,7 +2374,7 @@ export default function App() {
             if (hasSectionHeaders) {
                 // 1枚目（title_slide）以外で、section_header を全て削除
                 finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'section_header');
-                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘッダーを生成したため、構成案から削除しました。" }]);
+                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘダーを生成したため、構成案から削除しました。" }]);
             }
         }
         // ▲▲▲ ルールチェックここまで ▲▲▲
@@ -2428,16 +2673,25 @@ export default function App() {
       const replacements = {
         '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
         '{title}': currentSlide.title || '',
-        // summary はインライン要素として解釈
+        // summary はインライン要素として解釈 (quote, math_basic などが使用)
         '{summary}': marked.parseInline(currentSlide.summary || '', { breaks: true }), 
         // content (content_with_diagram用) はブロック要素(段落など)として解釈
         '{content}': marked.parse(currentSlide.summary || '', { breaks: true }), 
+        
+        // --- 新規テンプレート用のプレースホルダー (Phase 4.3) ---
+        '{number}': currentSlide.number || '', // highlighted_number 用
+        // description も太字などを反映させるため parseInline を使用
+        '{description}': marked.parseInline(currentSlide.description || '', { breaks: true }), // highlighted_number 用
+
+        // --- 既存のプレースホルダー（初期値） ---
         '{formula}': '', 
         '{infographic_svg}': '',
         '{agenda_items_html}': '',
         '{items_html}': '',
+        '{comparison_columns_html}': '', // (後続のロジックで上書き)
+        '{table_html}': '', // (後続のロジックで上書き)
       };
-
+      
       if (currentSlide.infographic?.needed) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));

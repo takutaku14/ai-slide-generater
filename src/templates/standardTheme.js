@@ -651,4 +651,121 @@ export const standardTemplates = {
     </div>
 </body>
 </html>`,
+
+  // 12. 引用 (キラーフレーズ)
+  quote: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
+            --bg-color-light: #FFFFFF; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        .slide-container { 
+            width: 1280px; height: 720px; box-sizing: border-box; 
+            padding: 60px 80px; 
+            background: var(--bg-color); 
+            display: flex; flex-direction: column; 
+        }
+        .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        
+        .quote-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 40px;
+            font-size: 52px; /* ★フォントを大きく */
+            font-weight: 700; /* 700 (Bold) または 900 (Black) */
+            line-height: 1.6;
+            color: var(--accent-color); /* ★アクセントカラーで強調 */
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        
+        <div class="quote-container">
+            <blockquote>{summary}</blockquote>
+        </div>
+    </div>
+</body>
+</html>`,
+
+  // 13. 重要数値
+  highlighted_number: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
+            --bg-color-light: #FFFFFF; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); }
+        .slide-container { 
+            width: 1280px; height: 720px; box-sizing: border-box; 
+            padding: 60px 80px; 
+            background: var(--bg-color); 
+            display: flex; flex-direction: column; 
+        }
+        .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        
+        .number-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column; /* 縦積み */
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .number {
+            font-size: 180px; /* ★巨大なフォント */
+            font-weight: 900; /* Black */
+            line-height: 1.1;
+            color: var(--accent-color); /* ★アクセントカラーで強調 */
+            margin: 0;
+        }
+        .description {
+            font-size: 32px; /* 説明文 */
+            font-weight: 700; /* Bold */
+            line-height: 1.5;
+            color: var(--text-color);
+            margin: 10px 0 0;
+        }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        
+        <div class="number-container">
+            <div class="number">{number}</div>
+            <p class="description">{description}</p>
+        </div>
+    </div>
+</body>
+</html>`,
 };

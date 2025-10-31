@@ -22,7 +22,8 @@
     "pdfjs-dist": "^5.4.296",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "response": "^0.18.0"
+    "response": "^0.18.0",
+    "styled-components": "^6.1.19"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
