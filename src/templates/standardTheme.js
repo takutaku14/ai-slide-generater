@@ -30,8 +30,8 @@ export const standardTemplates = {
             padding: 80px; 
             background: var(--bg-color); color: var(--text-color); 
             display: flex; flex-direction: column; 
-            justify-content: center; align-items: flex-start; /* 左揃え */
-            text-align: left; 
+            justify-content: center; align-items: center; /* ★修正: flex-start から center に変更 */
+            text-align: center; /* ★修正: left から center に変更 */
         }
         h1 { font-size: 80px; font-weight: 900; margin: 0; line-height: 1.3; }
         p { font-size: 28px; margin: 24px 0 0; color: var(--sub-text-color); font-weight: 400; }
@@ -681,6 +681,7 @@ export const standardTemplates = {
         .quote-container {
             flex-grow: 1;
             display: flex;
+            flex-direction: column; 
             align-items: center;
             justify-content: center;
             text-align: center;
@@ -688,10 +689,27 @@ export const standardTemplates = {
         blockquote {
             margin: 0;
             padding: 0 40px;
-            font-size: 52px; /* ★フォントを大きく */
-            font-weight: 700; /* 700 (Bold) または 900 (Black) */
+            font-size: 52px;
+            font-weight: 700;
             line-height: 1.6;
-            color: var(--accent-color); /* ★アクセントカラーで強調 */
+            color: var(--accent-color);
+            white-space: pre-wrap;
+            
+            /* ▼▼▼ 修正: 引用符のデザインを削除 ▼▼▼ */
+            /* position: relative; (削除) */
+        }
+        /* blockquote::before (削除) */
+        /* blockquote::after (削除) */
+        /* ▲▲▲ 修正ここまで ▲▲▲ */
+
+        /* 補足文のスタイル */
+        .description {
+            font-size: 20px;
+            font-weight: 400;
+            line-height: 1.7;
+            color: var(--sub-text-color);
+            margin: 30px 0 0;
+            padding: 0 40px;
             white-space: pre-wrap;
         }
     </style>
@@ -702,6 +720,7 @@ export const standardTemplates = {
         
         <div class="quote-container">
             <blockquote>{summary}</blockquote>
+            <p class="description">{description}</p>
         </div>
     </div>
 </body>
@@ -733,39 +752,83 @@ export const standardTemplates = {
         .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
         
-        .number-container {
-            flex-grow: 1;
+        /* ▼▼▼ 修正 (ここから) ▼▼▼ */
+        .slide-body { 
+            display: grid; 
+            grid-template-columns: 45% 55%; /* 左:数値 45%, 右:説明 55% */
+            gap: 40px; 
+            flex-grow: 1; 
+            align-items: center; 
+        }
+
+        .number-side {
             display: flex;
-            flex-direction: column; /* 縦積み */
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
         }
         .number {
-            font-size: 180px; /* ★巨大なフォント */
+            font-size: 160px; /* 180pxから少し縮小 */
             font-weight: 900; /* Black */
             line-height: 1.1;
-            color: var(--accent-color); /* ★アクセントカラーで強調 */
+            color: var(--accent-color);
             margin: 0;
         }
-        .description {
-            font-size: 32px; /* 説明文 */
+        .description { /* 数値直下の説明 */
+            font-size: 30px; /* 32pxから少し縮小 */
             font-weight: 700; /* Bold */
             line-height: 1.5;
             color: var(--text-color);
             margin: 10px 0 0;
         }
+
+        .content-side {
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; /* 垂直中央揃え */
+            height: 100%;
+            overflow: hidden;
+        }
+        .content-side h2 { /* 右カラムの見出し */
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 20px 0;
+        }
+        .content { /* 右カラムの本文エリア */
+            font-size: 22px; 
+            line-height: 1.7;
+            color: var(--sub-text-color); 
+            font-weight: 400; 
+            max-height: 300px; /* 高さがはみ出ないように制限 */
+            overflow: auto; /* 内容が多い場合はスクロール */
+        }
+        /* marked.parse() が生成するタグのスタイル (content_with_diagramから流用) */
+        .content p { margin: 0 0 16px 0; line-height: 1.7; }
+        .content p:last-child { margin-bottom: 0; }
+        .content ul { margin: 0 0 16px 0; padding-left: 1.5em; list-style-type: none; }
+        .content li { margin: 0 0 12px 0; line-height: 1.7; position: relative; padding-left: 0.5em; }
+        .content li::before { content: '●'; color: var(--accent-color); font-size: 0.8em; position: absolute; left: -1.2em; top: 0.15em; }
+        .content strong { font-weight: 700; color: var(--text-color); }
+        /* ▲▲▲ 修正 (ここまで) ▲▲▲ */
     </style>
 </head>
 <body class="{theme_class}">
     <div class="slide-container">
         <div class="slide-header"><h1>{title}</h1></div>
         
-        <div class="number-container">
-            <div class="number">{number}</div>
-            <p class="description">{description}</p>
+        <div class="slide-body">
+            <div class="number-side">
+                <div class="number">{number}</div>
+                <p class="description">{description}</p>
+            </div>
+            <div class="content-side">
+                <h2>{content_title}</h2>
+                <div class="content">{content}</div>
+            </div>
         </div>
-    </div>
+        </div>
 </body>
 </html>`,
 };

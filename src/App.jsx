@@ -118,7 +118,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
 - \`title_slide\`: 表紙
 - \`agenda\`: 目次
 - \`section_header\`: 章の区切り
-- \`highlighted_number\`: **【NEW】単一の最重要数値**（KPI、達成率など）を画面中央に大きく表示。
+- \`highlighted_number\`: **【NEW】単一の最重要数値**（KPI、達成率など）を左に、**解説文**を右に配置（2カラム）。
 - \`table_basic\`: **表形式（テーブル）**。機能一覧、比較表、数値データなど。
 - \`comparison\`: **2〜4つの項目（メリット/デメリット、A案/B案/C案など）を比較・対比**するための専用テンプレート。
 - \`three_points\`: 3つの要点を横並びで表示。
@@ -132,11 +132,15 @@ ${contextInstruction} // ★ 強化した指示を挿入
 ### テンプレート選択の思考プロセスと具体例
 あなたはMarkdownの各セクションを分析する際、以下の優先順位と思考プロセスでテンプレートを厳格に選択してください。
 
-1.  **[最優先] 単一の重要数値か？**: 内容が「売上達成率: 98%」「KPI: 150件」のように、**単一の最重要数値**をハイライトすべき場合は、必ず \`highlighted_number\` を選択します。
+1.  **[最優先] 単一の重要数値か？**: 内容が「売上達成率: 98%」「KPI: 150件」のように、**単一の最重要数値**をハイライトし、**その数値に関する補足説明文**（例：数値の意味、背景など）も記述されている場合は、必ず \`highlighted_number\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 今期の最重要KPI
-        今期の売上達成率は98%に達しました。これは目標をほぼ達成したことを示します...
+        今期の売上達成率は98%に達しました。これは目標をほぼ達成したことを示します。
+        
+        **達成の背景**
+        - 新機能Aのリリースが貢献
+        - マーケティング施策の成功
         \`\`\`
     * **出力テンプレート**: \`highlighted_number\`
 
@@ -197,7 +201,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
 7.  **[次点] 重要な引用か？**: 内容が本文中の「キラーフレーズ」や「重要な結論」、「...と述べた」のような引用文であると判断した場合、必ず \`quote\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
-        ...以上の分析から、我々はAプランが最適解であると結論付けた。
+        ...以上の分析から、我々はAプランが最適解であると結論付けた。このキラーフレーズは補足説明が必要である。
         \`\`\`
     * **出力テンプレート**: \`quote\`
 
@@ -217,13 +221,13 @@ ${contextInstruction} // ★ 強化した指示を挿入
 - **【文字数制限】**: スライドのタイトル（\`title\`キー）は、日本語で**27文字以内**の簡潔なものにしてください。長すぎて2行になるタイトルは避けてください。
 - **最重要**: \`summary\`や各項目の説明は、**プレゼンテーションでそのまま使える簡潔な言葉**で記述し、必要に応じて箇条書き（- や 1.）を使用してください。
 
-- **【強調ルール】**: \`summary\`, \`items\`, \`points\`, \`columns\`, \`table\`, \`description\` の各テキストを生成する際、**プレゼンテーションで特に重要となるキーワード、専門用語、またはキーとなる数値**は、必ずMarkdownの太字記法（\`**キーワード**\`）で囲んで積極的に強調してください。
+- **【強調ルール】**: \`summary\`, \`items\`, \`points\`, \`columns\`, \`table\`, \`description\`, \`content_title\` の各テキストを生成する際、**プレゼンテーションで特に重要となるキーワード、専門用語、またはキーとなる数値**は、必ずMarkdownの太字記法（\`**キーワード**\`）で囲んで積極的に強調してください。
 - **【用語解説ルール】**: もし \`用語：その解説\` のような形式で記述する場合は、必ず \`**用語**：その解説\` のように、コロン（：）の前の用語部分を太字にしてください。
 
 - **【数式表示ルール】**: もし内容に数式、変数、または計算式（例： \`y = ax + b\` や \`費用 - 収益\`）が含まれる場合は、**必ず KaTeX 形式**で記述してください。
   - **インライン数式**: 文中の数式は、シングルダラー（\`$\`）で囲んでください。（例: \`これは $y = ax + b$ の例です。\`）
   - **ブロック数式**: 独立した行の数式は、ダブルダラー（\`$$\`）で囲んでください。（例: \`$$ \sum_{i=1}^{n} x_i $$ \`）
-  - **【最重要】日本語の変数名**: 数式内で日本語の用語（例：\`課税譲渡所得金額\`）を使用する場合は、必ず \`\text{...}\` コマンドで囲んでください。（例: \`$$ \text{課税譲渡所得金額} = \text{収入金額} - (\text{取得費} + \text{譲渡費用}) - \text{特別控除額} $$ \`）
+  - **【最重要】日本語の変数名**: 数式内で日本語の用語（例：\`課税譲渡所得金額\`）を使用する場合は、必ず \`\text{...}\` コマンドで囲んでください。（例: \`$$ \text{課税譲To所得金額} = \text{収入金額} - (\text{取得費} + \text{譲To費用}) - \text{特別控除額} $$ \`）
 
 - **上記の専用テンプレート（table_basic, comparison, three_points など）のいずれにも当てはまらない**、単純な箇条書き（番号付き/なし）が中心のスライドを作成する場合に**のみ**、\`content_basic\` テンプレートを使用してください。
   - \`content_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`items\`キー** で「箇条書きの各項目（文字列）」の配列を生成してください。
@@ -289,11 +293,14 @@ ${contextInstruction} // ★ 強化した指示を挿入
 - \`quote\` テンプレートを使用する場合、
   - **本文（引用文、キラーフレーズ）を必ず \`summary\` キーに記述**してください。
   - AIの判断で、引用文の**前後に日本語の引用符（「」）**を適切に付与してください。
+  - **【NEW】** 引用文に対する**簡潔な補足文（解説文）**（例：出典、キラーフレーズの意図など）がある場合は、それを **\`description\` キー** に記述してください。
+  - 補足文がない場合は \`description: ""\` としてください。
 - **【highlighted_number ルール】**
 - \`highlighted_number\` テンプレートを使用する場合、
-  - **\`summary\`キーは絶対に空（""）**にしてください。
-  - 代わりに **\`number\` キー** で、**最も強調したい単一の数値・文字列**（例: "98%", "150件", "OK"）を必ず生成してください。
+  - **\`number\` キー** で、**最も強調したい単一の数値・文字列**（例: "98%", "150件", "OK"）を必ず生成してください。
   - **\`description\` キー** で、その数値の**簡潔な説明文**（例: "売上達成率", "今期のKPI"）を必ず生成してください。
+  - **【NEW】\`content_title\` キー** で、右カラムに表示する**解説の見出し**（例: "数値の背景", "単一の重要数値"）を必ず生成してください。
+  - **【NEW】\`summary\` キー** で、右カラムに表示する**補足説明文**（Markdown形式可）を必ず生成してください。
 - **【▲▲▲ 修正点ここまで ▲▲▲】**
 ${agendaCondition}
 ${sectionHeaderCondition}
@@ -304,8 +311,8 @@ ${sectionHeaderCondition}
 - **最重要**: 出力はJSON配列の文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
 [
   { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
-  { "title": "今期の最重要KPI", "summary": "", "template": "highlighted_number", "number": "98%", "description": "売上達成率" },
-  { "title": "我々の結論", "summary": "「我々の最適解は、Aプランである」", "template": "quote" },
+  { "title": "今期の最重要KPI", "template": "highlighted_number", "number": "98%", "description": "売上達成率", "content_title": "単一の重要数値", "summary": "データの中で最も強調したい一点（例：「達成率98%」）...\n- 補足情報1\n- 補足情報2" },
+  { "title": "我々の結論", "summary": "「我々の最適解は、Aプランである」", "template": "quote", "description": "− キラーフレーズや重要な結論の強調に使用。" },
   { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { "needed": true, "description": "システム概要の構成図" } },
   { "title": "二次方程式の解", "summary": "この公式は...", "template": "math_basic", "formula": "$$ x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} $$" },
   { 
@@ -981,22 +988,46 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
             ) : slide.template === 'highlighted_number' ? (
               <div className="space-y-3 mt-3">
                 <div className="bg-gray-800/50 p-3 rounded-md border border-white/10">
-                  <label className="text-xs font-bold text-gray-400 mb-2 block">強調する数値 (Number)</label>
-                  <input 
-                    type="text" 
-                    value={slide.number || ''} 
-                    onChange={(e) => onChange(index, 'number', e.target.value)} 
-                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                    placeholder="例: 98%"
-                  />
-                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">数値の説明 (Description)</label>
-                  <input 
-                    type="text" 
-                    value={slide.description || ''} 
-                    onChange={(e) => onChange(index, 'description', e.target.value)} 
-                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                    placeholder="例: 売上達成率"
-                  />
+                  {/* ▼▼▼ 修正: グリッドレイアウトで左右に分ける ▼▼▼ */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-gray-400 mb-2 block">左: 強調する数値 (Number)</label>
+                      <input 
+                        type="text" 
+                        value={slide.number || ''} 
+                        onChange={(e) => onChange(index, 'number', e.target.value)} 
+                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                        placeholder="例: 98%"
+                      />
+                      <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">左: 数値の説明 (Description)</label>
+                      <input 
+                        type="text" 
+                        value={slide.description || ''} 
+                        onChange={(e) => onChange(index, 'description', e.target.value)} 
+                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                        placeholder="例: 売上達成率"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-400 mb-2 block">右: 見出し (Content Title)</label>
+                      <input 
+                        type="text" 
+                        value={slide.content_title || ''} 
+                        onChange={(e) => onChange(index, 'content_title', e.target.value)} 
+                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                        placeholder="例: 単一の重要数値"
+                      />
+                      <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">右: 補足説明文 (Summary)</label>
+                      <textarea 
+                        value={slide.summary || ''} 
+                        onChange={(e) => onChange(index, 'summary', e.target.value)} 
+                        rows={3} 
+                        className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
+                        placeholder="右側の補足説明文..."
+                      />
+                    </div>
+                  </div>
+                  {/* ▲▲▲ 修正ここまで ▲▲▲ */}
                 </div>
               </div>
             ) : slide.template === 'quote' ? (
@@ -1008,6 +1039,15 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                   rows={3} 
                   className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
                   placeholder="例: 「我々の最適解は、Aプランである」"
+                />
+
+                <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">補足文 (Description)</label>
+                <input 
+                  type="text" 
+                  value={slide.description || ''} 
+                  onChange={(e) => onChange(index, 'description', e.target.value)} 
+                  className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                  placeholder="例: − キラーフレーズの補足説明"
                 />
               </div>
             ) : (
@@ -2675,13 +2715,23 @@ export default function App() {
         '{title}': currentSlide.title || '',
         // summary はインライン要素として解釈 (quote, math_basic などが使用)
         '{summary}': marked.parseInline(currentSlide.summary || '', { breaks: true }), 
-        // content (content_with_diagram用) はブロック要素(段落など)として解釈
+        
+        // ▼▼▼ 修正 ▼▼▼
+        // content (content_with_diagram, highlighted_number 用) はブロック要素(段落など)として解釈
         '{content}': marked.parse(currentSlide.summary || '', { breaks: true }), 
+        // ▲▲▲ 修正 ▲▲▲
         
         // --- 新規テンプレート用のプレースホルダー (Phase 4.3) ---
         '{number}': currentSlide.number || '', // highlighted_number 用
-        // description も太字などを反映させるため parseInline を使用
-        '{description}': marked.parseInline(currentSlide.description || '', { breaks: true }), // highlighted_number 用
+        
+        // ▼▼▼ 修正 (Phase 4.3): description プレースホルダーを追加 ▼▼▼
+        // (highlighted_number と quote テンプレートが使用)
+        '{description}': marked.parseInline(currentSlide.description || '', { breaks: true }), 
+        // ▲▲▲ 修正ここまで ▲▲▲
+
+        // ▼▼▼ 追加 ▼▼▼
+        '{content_title}': marked.parseInline(currentSlide.content_title || '', { breaks: true }), // highlighted_number 用
+        // ▲▲▲ 追加ここまで ▲▲▲
 
         // --- 既存のプレースホルダー（初期値） ---
         '{formula}': '', 
