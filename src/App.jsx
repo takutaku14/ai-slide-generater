@@ -224,10 +224,15 @@ ${contextInstruction} // ★ 強化した指示を挿入
 - **【強調ルール】**: \`summary\`, \`items\`, \`points\`, \`columns\`, \`table\`, \`description\`, \`content_title\` の各テキストを生成する際、**プレゼンテーションで特に重要となるキーワード、専門用語、またはキーとなる数値**は、必ずMarkdownの太字記法（\`**キーワード**\`）で囲んで積極的に強調してください。
 - **【用語解説ルール】**: もし \`用語：その解説\` のような形式で記述する場合は、必ず \`**用語**：その解説\` のように、コロン（：）の前の用語部分を太字にしてください。
 
+- **【▼▼▼ 修正（NEW） ▼▼▼】**
+- **【Markdownエスケープ禁止ルール】**: \`summary\`, \`description\`, \`content_title\` などのキーにMarkdown（例: \`**強調**\`）を含める際、**絶対にバックスラッシュ（\`\\\`）でエスケープしないでください。**
+  - **悪い例**: \`"summary": "これは \\\`**\\\`**強調\\\`**\\\`** です。"\`
+  - **良い例**: \`"summary": "これは **強調** です。"\`
+
 - **【数式表示ルール】**: もし内容に数式、変数、または計算式（例： \`y = ax + b\` や \`費用 - 収益\`）が含まれる場合は、**必ず KaTeX 形式**で記述してください。
   - **インライン数式**: 文中の数式は、シングルダラー（\`$\`）で囲んでください。（例: \`これは $y = ax + b$ の例です。\`）
   - **ブロック数式**: 独立した行の数式は、ダブルダラー（\`$$\`）で囲んでください。（例: \`$$ \sum_{i=1}^{n} x_i $$ \`）
-  - **【最重要】日本語の変数名**: 数式内で日本語の用語（例：\`課税譲渡所得金額\`）を使用する場合は、必ず \`\text{...}\` コマンドで囲んでください。（例: \`$$ \text{課税譲To所得金額} = \text{収入金額} - (\text{取得費} + \text{譲To費用}) - \text{特別控除額} $$ \`）
+  - **【最重要】日本語の変数名**: 数式内で日本語の用語（例：\`課税譲渡所得金額\`）を使用する場合は、必ず \`\text{...}\` コマンドで囲んでください。（例: \`$$ \text{課税譲渡所得金額} = \text{収入金額} - (\text{取得費} + \text{譲渡費用}) - \text{特別控除額} $$ \`）
 
 - **上記の専用テンプレート（table_basic, comparison, three_points など）のいずれにも当てはまらない**、単純な箇条書き（番号付き/なし）が中心のスライドを作成する場合に**のみ**、\`content_basic\` テンプレートを使用してください。
   - \`content_basic\` を選択した場合、**\`summary\`キーは絶対に空（""）**にし、代わりに **\`items\`キー** で「箇条書きの各項目（文字列）」の配列を生成してください。
@@ -245,7 +250,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
 - **表形式（テーブル）が最適なデータ**（例：機能比較一覧、数値データ一覧など）を表現し、\`table_basic\` テンプレートを使用する場合は、
   - **\`summary\`キーは絶対に空（""）**にし、代わりに **\`table\`キー** で \`{ "headers": ["(ヘッダー1)", ...], "rows": [ ["(行1データ1)", ...], ["(行2データ1)", ...] ] }\` の形式のオブジェクトを生成してください。
   - **【表の重要ルール】**: スライドの視認性を保つため、\`table_basic\` の表は **最大7行、5列程度** に収めてください。
-  - **【最重要・高さ考慮】**: 上記の行数制限（7行）を守っていても、**各セルのテキスト量（文字数）が非常に多い**場合、テーブル全体の高さが1枚のスライドに収まらなくなる可能性があります。
+  - **【最重要・高さ考慮】**: 上記の行数制限（7行）を守っていても、**各セルのテキスト量（文字数）が非常に多い**場合、テーブル全体の高さが1枚のスライドに収ままらなくなる可能性があります。
   - **AIは常にこの「高さ」を意識してください。** もし1つのセルが長くなりすぎる場合（例：50文字を超える長文など）は、**内容を簡潔に要約**するか、**そのセル内で改行（\\n）**を適切に使用してください。
   - それでも情報が多すぎて1枚に収まらない（高さが超える）とAIが判断した場合は、行数が7行以下であっても、\`template\` が \`table_basic\` のスライドを **複数枚に分割** してください。
     - （例：1枚目のタイトルを「**機能比較 (1/2)**」、2枚目のタイトルを「**機能比較 (2/2)**」のようにし、表の続きを2枚目に配置してください。この際、**ヘッダー行は両方のスライドに含めてください**。）
@@ -296,11 +301,12 @@ ${contextInstruction} // ★ 強化した指示を挿入
   - **【NEW】** 引用文に対する**簡潔な補足文（解説文）**（例：出典、キラーフレーズの意図など）がある場合は、それを **\`description\` キー** に記述してください。
   - 補足文がない場合は \`description: ""\` としてください。
 - **【highlighted_number ルール】**
-- \`highlighted_number\` テンプレートを使用する場合、
-  - **\`number\` キー** で、**最も強調したい単一の数値・文字列**（例: "98%", "150件", "OK"）を必ず生成してください。
-  - **\`description\` キー** で、その数値の**簡潔な説明文**（例: "売上達成率", "今期のKPI"）を必ず生成してください。
-  - **【NEW】\`content_title\` キー** で、右カラムに表示する**解説の見出し**（例: "数値の背景", "単一の重要数値"）を必ず生成してください。
-  - **【NEW】\`summary\` キー** で、右カラムに表示する**補足説明文**（Markdown形式可）を必ず生成してください。
+- **【超厳格・numberルール】**: \`number\` キーには、**数値と単位（例: "98%", "150件", "3.14"）のみ**を格納してください。
+- **【禁止事項】**: \`number\` キーに、\`description\`（例: "達成率"）や、補足的な日本語（例: "**削減**"）、Markdown（\`**\`）を**絶対​​に含めないでください**。
+- \`description\` キー で、その数値の**簡潔な説明文**（例: "売上達成率", "運用コスト削減"）を必ず生成してください。
+- **【AIの思考プロセス】**: もし元のテキストが「**30%削減**」のように数値と日本語がセットの場合、\`number: "30%"\` と \`description: "運用コスト削減"\` のように、**日本語は\`description\`キーに含めるか、\`summary\`キーの本文で説明**してください。
+- **【NEW】\`content_title\` キー** で、右カラムに表示する**解説の見出し**（例: "数値の背景", "単一の重要数値"）を必ず生成してください。
+- **【NEW】\`summary\` キー** で、右カラムに表示する**補足説明文**（Markdown形式可）を必ず生成してください。
 - **【▲▲▲ 修正点ここまで ▲▲▲】**
 ${agendaCondition}
 ${sectionHeaderCondition}
@@ -311,7 +317,7 @@ ${sectionHeaderCondition}
 - **最重要**: 出力はJSON配列の文字列のみとし、前後に\`\`\`jsonや説明文を含めないでください。
 [
   { "title": "タイトルページ", "summary": "発表者名", "template": "title_slide" },
-  { "title": "今期の最重要KPI", "template": "highlighted_number", "number": "98%", "description": "売上達成率", "content_title": "単一の重要数値", "summary": "データの中で最も強調したい一点（例：「達成率98%」）...\n- 補足情報1\n- 補足情報2" },
+  { "title": "今期の最重要KPI", "template": "highlighted_number", "number": "98%", "description": "売上達成率", "content_title": "達成率の背景", "summary": "現在の達成率は**98%**に達しており、目標達成は確実です。\n- これは運用チームの努力によるものです。" },
   { "title": "我々の結論", "summary": "「我々の最適解は、Aプランである」", "template": "quote", "description": "− キラーフレーズや重要な結論の強調に使用。" },
   { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { "needed": true, "description": "システム概要の構成図" } },
   { "title": "二次方程式の解", "summary": "この公式は...", "template": "math_basic", "formula": "$$ x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} $$" },
@@ -1819,6 +1825,71 @@ export default function App() {
     }
   };
 
+  /**
+   * 【NEW】'highlighted_number' スライドの 'number' フィールドを自動修正（サニタイズ）する
+   * AIが 'number' に日本語やMarkdownを含めた場合に、それらを 'description' に移動させる
+   * @param {Array} outline - AIが生成したスライド構成案
+   * @returns {Object} - { sanitizedOutline: Array, notification: string | null }
+   */
+  const sanitizeHighlightedNumbers = (outline) => {
+    let notification = null; // 修正が発生した場合の通知メッセージ
+    
+    // Unicodeプロパティエスケープ (\p{...}) をサポートする正規表現
+    // [\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}] で日本語の文字セットにマッチ
+    const japaneseRegex = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+/gu;
+
+    const sanitizedOutline = outline.map(slide => {
+      // highlighted_number テンプレート以外はそのまま返す
+      if (slide.template !== 'highlighted_number' || !slide.number || typeof slide.number !== 'string') {
+        return slide;
+      }
+
+      let originalNumber = slide.number;
+      let finalNumber = originalNumber;
+      let extraTextFound = '';
+
+      // 1. Markdown記法（*, _）を除去
+      finalNumber = finalNumber.replace(/[*_]/g, '');
+
+      // 2. 日本語のテキストを検索
+      const matches = finalNumber.match(japaneseRegex);
+      
+      if (matches) {
+        // マッチした日本語（例: "削減", "達成"）を extraTextFound に結合
+        extraTextFound = matches.join('');
+        // 元の文字列から日本語を除去
+        finalNumber = finalNumber.replace(japaneseRegex, '').trim();
+      }
+
+      // 3. 修正が発生したかチェック
+      // (例: "**30%削減**" -> "30%")
+      if (originalNumber !== finalNumber) {
+        const newSlide = { ...slide };
+        
+        // 4. 'number' フィールドをクリーンアップ後の値で上書き
+        newSlide.number = finalNumber;
+        
+        // 5. 'description' フィールドに、抽出した日本語テキストを追記
+        // (すでに追加済みでないかチェック)
+        if (extraTextFound && newSlide.description && !newSlide.description.includes(extraTextFound)) {
+          newSlide.description = newSlide.description + extraTextFound;
+        } else if (extraTextFound && !newSlide.description) {
+          // description が空だった場合は、そのままセット
+          newSlide.description = extraTextFound;
+        }
+
+        // 修正が発生したことを記録
+        notification = "【自動修正】'重要数値' スライドの 'number' フィールドから不要なテキスト（例: '削減'）を検出し、'description' フィールドに自動的に移動しました。";
+        return newSlide;
+      }
+
+      // 修正がなければ元のスライドを返す
+      return slide;
+    });
+
+    return { sanitizedOutline, notification };
+  };
+
   // --- Handlers ---
   const handleApiKeySave = () => {
     if (tempApiKey) {
@@ -2199,8 +2270,16 @@ export default function App() {
             }
             // 2. 構造化テンプレート (points, columns, table, steps) のサニタイズ
             else if (['three_points', 'comparison', 'vertical_steps', 'table_basic'].includes(newSlide.template)) {
+                // ▼▼▼ 修正: highlighted_number をここから除外 ▼▼▼
                 newSlide.summary = "";
+            } else if (newSlide.template === 'highlighted_number') {
+                // highlighted_number は summary を持つようになったため、summary が文字列であることを保証
+                if (typeof newSlide.summary !== 'string') {
+                    newSlide.summary = "";
+                }
             }
+            // ▲▲▲ 修正ここまで ▲▲▲
+
             // 3. 'summary' ベースのテンプレートのサニタイズ (items -> summary)
             else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {
                 if ((!newSlide.summary || (typeof newSlide.summary === 'string' && newSlide.summary.trim().length === 0)) && 
@@ -2238,8 +2317,16 @@ export default function App() {
         // ▲▲▲ 【NEW】ここまで ▲▲▲
 
 
+        // ▼▼▼ 【NEW】highlighted_number ガードレール呼び出し ▼▼▼
+        const { 
+          sanitizedOutline: guardedOutline, 
+          notification: guardNotification 
+        } = sanitizeHighlightedNumbers(newlineFixedOutline);
+        // ▲▲▲ 【NEW】ここまで ▲▲▲
+
+
         // ▼▼▼ ここからルールチェックと強制修正ロジック ▼▼▼
-        let finalOutline = [...newlineFixedOutline]; // ★修正: newlineFixedOutline を使用
+        let finalOutline = [...guardedOutline]; // ★修正: ガードレール適用済みのデータを使用
 
         // === 1. アジェンダのチェックと修正 ===
         const agendaMaxItems = 6;
@@ -2421,6 +2508,12 @@ export default function App() {
 
         setSlideOutline(finalOutline); // ← ルールチェック済みのデータをセット
         setAppStatus(APP_STATUS.OUTLINE_CREATED);
+
+        // ▼▼▼ 【NEW】ガードレールの通知（もしあれば）を最後に追加 ▼▼▼
+        if (guardNotification) {
+          setMessages(prev => [...prev, { type: 'system', text: guardNotification }]);
+        }
+
         // 構成案が生成されたことを示すメインのメッセージは最後に表示
         setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
 
@@ -2438,7 +2531,6 @@ export default function App() {
       setApiErrorStep('outline');
       setMessages(prev => [...prev, { type: 'system', text: `予期せぬエラーが発生しました: ${error.message}` }]);
     }
-    // [ここまで変更]
   };
 
   const handleOutlineChange = (index, field, value) => {
@@ -2709,29 +2801,41 @@ export default function App() {
       const template = THEMES[selectedTheme].templates[currentSlide.template];
       if (!template) throw new Error(`テンプレート「${currentSlide.template}」がテーマ「${selectedTheme}」に見つかりません。`);
 
+      // ▼▼▼ 修正: 正規表現を \\+ (1つ以上のバックスラッシュ) に強化 ▼▼▼
+      // AIが \`**text**\` や \\**text**\` のようにエスケープした場合、 \`**text**\` に戻す
+      const cleanSummary = (currentSlide.summary || '')
+        .replace(/\\+([*_~`$])/g, '$1'); // \`*` -> `*`, \\* -> *
+      
+      const cleanDescription = (currentSlide.description || '')
+        .replace(/\\+([*_~`$])/g, '$1');
+        
+      const cleanContentTitle = (currentSlide.content_title || '')
+        .replace(/\\+([*_~`$])/g, '$1');
+      // ▲▲▲ 修正ここまで ▲▲▲
+
       // summary や content を marked でパース
       const replacements = {
         '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
         '{title}': currentSlide.title || '',
-        // summary はインライン要素として解釈 (quote, math_basic などが使用)
-        '{summary}': marked.parseInline(currentSlide.summary || '', { breaks: true }), 
         
-        // ▼▼▼ 修正 ▼▼▼
+        // ▼▼▼ 修正: cleanSummary を使用 ▼▼▼
+        // summary はインライン要素として解釈 (quote, math_basic などが使用)
+        '{summary}': marked.parseInline(cleanSummary, { breaks: true }), 
         // content (content_with_diagram, highlighted_number 用) はブロック要素(段落など)として解釈
-        '{content}': marked.parse(currentSlide.summary || '', { breaks: true }), 
-        // ▲▲▲ 修正 ▲▲▲
+        '{content}': marked.parse(cleanSummary, { breaks: true }), 
+        // ▲▲▲ 修正ここまで ▲▲▲
         
         // --- 新規テンプレート用のプレースホルダー (Phase 4.3) ---
         '{number}': currentSlide.number || '', // highlighted_number 用
         
-        // ▼▼▼ 修正 (Phase 4.3): description プレースホルダーを追加 ▼▼▼
+        // ▼▼▼ 修正: cleanDescription を使用 ▼▼▼
         // (highlighted_number と quote テンプレートが使用)
-        '{description}': marked.parseInline(currentSlide.description || '', { breaks: true }), 
+        '{description}': marked.parseInline(cleanDescription, { breaks: true }), 
         // ▲▲▲ 修正ここまで ▲▲▲
 
-        // ▼▼▼ 追加 ▼▼▼
-        '{content_title}': marked.parseInline(currentSlide.content_title || '', { breaks: true }), // highlighted_number 用
-        // ▲▲▲ 追加ここまで ▲▲▲
+        // ▼▼▼ 修正: cleanContentTitle を使用 ▼▼▼
+        '{content_title}': marked.parseInline(cleanContentTitle, { breaks: true }), // highlighted_number 用
+        // ▲▲▲ 修正ここまで ▲▲▲
 
         // --- 既存のプレースホルダー（初期値） ---
         '{formula}': '', 
@@ -2779,9 +2883,14 @@ export default function App() {
         const iconSvgs = await Promise.all(iconPromises);
         
         currentSlide.points.forEach((point, i) => {
-            replacements[`{point_${i + 1}_title}`] = point.title || '';
+            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+            const cleanPointTitle = (point.title || '').replace(/\\+([*_~`$])/g, '$1');
+            const cleanPointSummary = (point.summary || '').replace(/\\+([*_~`$])/g, '$1');
+            // ▲▲▲ 修正ここまで ▲▲▲
+
+            replacements[`{point_${i + 1}_title}`] = cleanPointTitle;
             // ★修正: point.summary を parseInline で変換
-            replacements[`{point_${i + 1}_summary}`] = marked.parseInline(point.summary || '', { breaks: true }); 
+            replacements[`{point_${i + 1}_summary}`] = marked.parseInline(cleanPointSummary, { breaks: true }); 
             replacements[`{icon_${i + 1}_svg}`] = iconSvgs[i] || ``;
         });
       }
@@ -2791,7 +2900,9 @@ export default function App() {
       if (currentSlide.template === 'agenda') {
         // ★修正: <li> の中身を parseInline で変換
         const agendaItems = currentSlide.summary.split('\n').map(item => {
-          const cleanItem = item.replace(/^\s*\d+\.\s*/, '');
+          // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+          const cleanItem = item.replace(/^\s*\d+\.\s*/, '').replace(/\\+([*_~`$])/g, '$1');
+          // ▲▲▲ 修正ここまで ▲▲▲
           return `<li>${marked.parseInline(cleanItem || '', { breaks: true })}</li>`; 
         }).join('');
         replacements['{agenda_items_html}'] = agendaItems;
@@ -2826,14 +2937,19 @@ export default function App() {
 
         let itemsHtml = '';
         if(currentSlide.template === 'vertical_steps') {
-          // ★修正: item.description を parseInline で変換
-          itemsHtml = currentSlide.items.map((item, i) => `
-            <div class="step">
-              <div class="step-marker">${i + 1}</div>
-              <h2>${item.title || ''}</h2>
-              <p>${marked.parseInline(item.description || '', { breaks: true })}</p> 
-            </div>
-          `).join('');
+          itemsHtml = currentSlide.items.map((item, i) => {
+            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+            const cleanTitle = (item.title || '').replace(/\\+([*_~`$])/g, '$1');
+            const cleanDescription = (item.description || '').replace(/\\+([*_~`$])/g, '$1');
+            // ▲▲▲ 修正ここまで ▲▲▲
+            return `
+              <div class="step">
+                <div class="step-marker">${i + 1}</div>
+                <h2>${cleanTitle}</h2>
+                <p>${marked.parseInline(cleanDescription, { breaks: true })}</p> 
+              </div>
+            `;
+          }).join('');
         } else if (currentSlide.template === 'content_basic') {
           itemsHtml = currentSlide.items.map(item => {
             const trimmedItem = item || '';
@@ -2845,6 +2961,10 @@ export default function App() {
             // '1. ' や '* ' や '- ' や '・ ' などを正規表現で強制的に削除
             // 日本語の「・」や「●」「■」も対象に追加し、スペースが0個でもマッチするよう \s* に変更
             textContent = textContent.replace(/^([\*\-\・\●\■]|(\d+\.)|[a-z]\.)\s*/, ''); 
+
+            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+            textContent = textContent.replace(/\\+([*_~`$])/g, '$1');
+            // ▲▲▲ 修正ここまで ▲▲▲
 
             // スペース2個で1レベル (2em) のインデントとする
             const indentLevel = Math.floor(leadingSpaces / 2); // 0, 1, 2...
@@ -2860,11 +2980,18 @@ export default function App() {
       if (currentSlide.template === 'comparison' && Array.isArray(currentSlide.columns)) {
         // columns 配列をループ処理して、各カラムのHTMLを生成
         const columnsHtml = currentSlide.columns.map(column => {
-            const title = column.title || '';
+            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+            const title = (column.title || '').replace(/\\+([*_~`$])/g, '$1');
+            // ▲▲▲ 修正ここまで ▲▲▲
             
             // カラム内の箇条書きHTMLを生成
             const itemsHtml = Array.isArray(column.items)
-                ? column.items.map(item => `<li>${marked.parseInline(item || '', { breaks: true })}</li>`).join('')
+                ? column.items.map(item => {
+                  // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+                  const cleanItem = (item || '').replace(/\\+([*_~`$])/g, '$1');
+                  // ▲▲▲ 修正ここまで ▲▲▲
+                  return `<li>${marked.parseInline(cleanItem, { breaks: true })}</li>`
+                }).join('')
                 : '';
                 
             // standardTheme.js の .column クラスに合わせたHTMLを返す
@@ -2887,7 +3014,12 @@ export default function App() {
         let tableHtml = '<thead><tr>';
         // ヘッダー生成 (marked.parseInline を使用)
         if (Array.isArray(currentSlide.table.headers)) {
-          tableHtml += currentSlide.table.headers.map(header => `<th>${marked.parseInline(header || '', { breaks: true })}</th>`).join(''); 
+          tableHtml += currentSlide.table.headers.map(header => {
+            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+            const cleanHeader = (header || '').replace(/\\+([*_~`$])/g, '$1');
+            // ▲▲▲ 修正ここまで ▲▲▲
+            return `<th>${marked.parseInline(cleanHeader, { breaks: true })}</th>`
+          }).join(''); 
         }
         tableHtml += '</tr></thead>';
         
@@ -2896,7 +3028,12 @@ export default function App() {
         if (Array.isArray(currentSlide.table.rows)) {
           tableHtml += currentSlide.table.rows.map(row => {
             let rowHtml = '<tr>';
-            rowHtml += row.map(cell => `<td>${marked.parseInline(cell || '', { breaks: true })}</td>`).join(''); 
+            rowHtml += row.map(cell => {
+              // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
+              const cleanCell = (cell || '').replace(/\\+([*_~`$])/g, '$1');
+              // ▲▲▲ 修正ここまで ▲▲▲
+              return `<td>${marked.parseInline(cleanCell, { breaks: true })}</td>`
+            }).join(''); 
             rowHtml += '</tr>';
             return rowHtml;
           }).join('');
