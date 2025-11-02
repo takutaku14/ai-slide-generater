@@ -3,7 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import JSZip from 'jszip';
 import { THEMES } from './templates'; 
-import { marked } from 'marked'; 
+import { marked, Marked } from 'marked'; 
 import markedKatex from 'marked-katex-extension';
 
 // pdf.js のワーカーを設定
@@ -575,12 +575,26 @@ const UploadCloudIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="4
 const SendIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>);
 
 // --- UI コンポーネント ---
-const AppHeader = ({ onSettingsClick }) => (
+// --- UI コンポーネント ---
+const AppHeader = ({ onSettingsClick, onDownloadLog }) => ( // ← onDownloadLog を追加
   <header className="flex-shrink-0 h-14 bg-black/25 flex items-center px-6 justify-between border-b border-white/10 z-10">
     <h1 className="text-lg font-semibold">スライド作成ジェネレーター</h1>
-    <button onClick={onSettingsClick} className="p-2 rounded-full hover:bg-white/10 transition-colors">
-      <SettingsIcon />
-    </button>
+    <div className="flex items-center space-x-2">
+      {/* ▼▼▼ ログボタンを追加 ▼▼▼ */}
+      <button 
+        onClick={onDownloadLog} 
+        title="デバッグログを保存" 
+        className="p-2 rounded-full hover:bg-white/10 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 hover:text-white transition-colors">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+        </svg>
+      </button>
+      {/* ▲▲▲ ログボタンここまで ▲▲▲ */}
+      <button onClick={onSettingsClick} className="p-2 rounded-full hover:bg-white/10 transition-colors">
+        <SettingsIcon />
+      </button>
+    </div>
   </header>
 );
 
@@ -1559,6 +1573,7 @@ export default function App() {
 
   const [appStatus, setAppStatus] = useState(APP_STATUS.INITIAL);
   const [messages, setMessages] = useState([]);
+  const [debugLog, setDebugLog] = useState([]); // ★【NEW】デバッグログ専用ステート
   const [userInput, setUserInput] = useState('');
 
   const [fileName, setFileName] = useState('');
@@ -1602,20 +1617,16 @@ export default function App() {
     const storedApiKey = localStorage.getItem('gemini_api_key');
     if (storedApiKey) {
       setApiKey(storedApiKey);
-      setMessages([{ type: 'system', text: 'ようこそ！スライドの元になるドキュメントをアップロードしてください。' }]);
+      const text = 'ようこそ！スライドの元になるドキュメントをアップロードしてください。';
+      setMessages([{ type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'useEffect', text);
     } else {
       setIsApiKeyModalOpen(true);
-      setMessages([{ type: 'system', text: 'まず、Gemini APIキーを設定してください。' }]);
+      const text = 'まず、Gemini APIキーを設定してください。';
+      setMessages([{ type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_WARN', 'useEffect', text);
     }
 
-    // KaTeX 拡張機能を marked に登録
-    try {
-      marked.use(markedKatex({
-        throwOnError: false // LaTeXのパースエラー時にコンソールに警告を出すが、アプリはクラッシュさせない
-      }));
-    } catch (e) {
-      console.error("Failed to load marked-katex-extension", e);
-    }
 
   }, []);
 
@@ -1625,6 +1636,24 @@ export default function App() {
 
 
   // --- Helper Functions ---
+
+  /**
+   * 【NEW】デバッグログに新しいエントリを追加する
+   * @param {string} type - ログ種別 (例: 'UI_SYSTEM', 'API_REQUEST', 'API_RESPONSE_SUCCESS', 'API_ERROR')
+   * @param {string} context - 処理のコンテキスト (例: 'callGeminiApi: structureText')
+   * @param {any} data - ログに残したいデータ (文字列、オブジェクト、プロンプト全文など)
+   */
+  const addLogEntry = (type, context, data) => {
+    const newEntry = {
+      timestamp: new Date().toISOString(),
+      type,
+      context,
+      data: data // 生のデータをそのまま保存
+    };
+    // UIの再レンダリングを避けるため、ステートフックの関数型更新を利用
+    setDebugLog(prevLog => [...prevLog, newEntry]);
+  };
+
   /**
    * 【NEW】AIが生成したデータ内のリテラル改行（\\n）を本物の改行（\n）に置換する
    * @param {any} data スキャン対象のデータ（オブジェクト、配列、文字列など）
@@ -1658,7 +1687,11 @@ export default function App() {
   
   const callGeminiApi = async (prompt, modelName, actionName) => {
     if (!apiKey) {
-      setMessages(prev => [...prev, { type: 'system', text: 'APIキーが設定されていません。' }]);
+      // ▼▼▼ ログ記録（UIメッセージ） ▼▼▼
+      const text = 'APIキーが設定されていません。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'callGeminiApi', text);
+      // ▲▲▲ ログ記録 ▲▲▲
       return null;
     }
     try {
@@ -1666,6 +1699,11 @@ export default function App() {
       const model = genAI.getGenerativeModel({ model: modelName });
       console.log(`[INFO] Calling Gemini API for: ${actionName} using ${modelName}`);
       console.debug(`[DEBUG] Prompt for ${actionName}:`, prompt);
+
+      // ▼▼▼ ログ記録（APIリクエスト） ▼▼▼
+      addLogEntry('API_REQUEST', actionName, { model: modelName, prompt: prompt });
+      // ▲▲▲ ログ記録 ▲▲▲
+
       const result = await model.generateContent(prompt);
       const response = await result.response;
       let text = await response.text();
@@ -1674,12 +1712,86 @@ export default function App() {
       text = text.replace(/^xml\s*/, '');
       
       console.log(`[INFO] Received response for: ${actionName}`);
+
+      // ▼▼▼ ログ記録（APIレスポンス成功） ▼▼▼
+      addLogEntry('API_RESPONSE_SUCCESS', actionName, text);
+      // ▲▲▲ ログ記録 ▲▲▲
+      
       return text;
     } catch (error) {
       console.error(`[FATAL] API Error during ${actionName}:`, error);
-      // ▼▼▼ 修正点: UIへのメッセージ表示を削除し、エラー内容を呼び出し元に返す ▼▼▼
+
+      // ▼▼▼ ログ記録（APIレスポンスエラー） ▼▼▼
+      addLogEntry('API_ERROR', actionName, error.message);
+      // ▲▲▲ ログ記録 ▲▲▲
+
       return { error: `APIエラーが発生しました: ${error.message}` }; 
     }
+  };
+
+  /**
+   * 【NEW】'highlighted_number' スライドの 'number' フィールドを自動修正（サニタイズ）する
+   * AIが 'number' に日本語やMarkdownを含めた場合に、それらを 'description' に移動させる
+   * @param {Array} outline - AIが生成したスライド構成案
+   * @returns {Object} - { sanitizedOutline: Array, notification: string | null }
+   */
+  const sanitizeHighlightedNumbers = (outline) => {
+    let notification = null; // 修正が発生した場合の通知メッセージ
+    
+    // Unicodeプロパティエスケープ (\p{...}) をサポートする正規表現
+    // [\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}] で日本語の文字セットにマッチ
+    const japaneseRegex = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+/gu;
+
+    const sanitizedOutline = outline.map(slide => {
+      // highlighted_number テンプレート以外はそのまま返す
+      if (slide.template !== 'highlighted_number' || !slide.number || typeof slide.number !== 'string') {
+        return slide;
+      }
+
+      let originalNumber = slide.number;
+      let finalNumber = originalNumber;
+      let extraTextFound = '';
+
+      // 1. Markdown記法（*, _）を除去
+      finalNumber = finalNumber.replace(/[*_]/g, '');
+
+      // 2. 日本語のテキストを検索
+      const matches = finalNumber.match(japaneseRegex);
+      
+      if (matches) {
+        // マッチした日本語（例: "削減", "達成"）を extraTextFound に結合
+        extraTextFound = matches.join('');
+        // 元の文字列から日本語を除去
+        finalNumber = finalNumber.replace(japaneseRegex, '').trim();
+      }
+
+      // 3. 修正が発生したかチェック
+      // (例: "**30%削減**" -> "30%")
+      if (originalNumber !== finalNumber) {
+        const newSlide = { ...slide };
+        
+        // 4. 'number' フィールドをクリーンアップ後の値で上書き
+        newSlide.number = finalNumber;
+        
+        // 5. 'description' フィールドに、抽出した日本語テキストを追記
+        // (すでに追加済みでないかチェック)
+        if (extraTextFound && newSlide.description && !newSlide.description.includes(extraTextFound)) {
+          newSlide.description = newSlide.description + extraTextFound;
+        } else if (extraTextFound && !newSlide.description) {
+          // description が空だった場合は、そのままセット
+          newSlide.description = extraTextFound;
+        }
+
+        // 修正が発生したことを記録
+        notification = "【自動修正】'重要数値' スライドの 'number' フィールドから不要なテキスト（例: '削減'）を検出し、'description' フィールドに自動的に移動しました。";
+        return newSlide;
+      }
+
+      // 修正がなければ元のスライドを返す
+      return slide;
+    });
+
+    return { sanitizedOutline, notification };
   };
 
   /**
@@ -1825,78 +1937,15 @@ export default function App() {
     }
   };
 
-  /**
-   * 【NEW】'highlighted_number' スライドの 'number' フィールドを自動修正（サニタイズ）する
-   * AIが 'number' に日本語やMarkdownを含めた場合に、それらを 'description' に移動させる
-   * @param {Array} outline - AIが生成したスライド構成案
-   * @returns {Object} - { sanitizedOutline: Array, notification: string | null }
-   */
-  const sanitizeHighlightedNumbers = (outline) => {
-    let notification = null; // 修正が発生した場合の通知メッセージ
-    
-    // Unicodeプロパティエスケープ (\p{...}) をサポートする正規表現
-    // [\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}] で日本語の文字セットにマッチ
-    const japaneseRegex = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+/gu;
-
-    const sanitizedOutline = outline.map(slide => {
-      // highlighted_number テンプレート以外はそのまま返す
-      if (slide.template !== 'highlighted_number' || !slide.number || typeof slide.number !== 'string') {
-        return slide;
-      }
-
-      let originalNumber = slide.number;
-      let finalNumber = originalNumber;
-      let extraTextFound = '';
-
-      // 1. Markdown記法（*, _）を除去
-      finalNumber = finalNumber.replace(/[*_]/g, '');
-
-      // 2. 日本語のテキストを検索
-      const matches = finalNumber.match(japaneseRegex);
-      
-      if (matches) {
-        // マッチした日本語（例: "削減", "達成"）を extraTextFound に結合
-        extraTextFound = matches.join('');
-        // 元の文字列から日本語を除去
-        finalNumber = finalNumber.replace(japaneseRegex, '').trim();
-      }
-
-      // 3. 修正が発生したかチェック
-      // (例: "**30%削減**" -> "30%")
-      if (originalNumber !== finalNumber) {
-        const newSlide = { ...slide };
-        
-        // 4. 'number' フィールドをクリーンアップ後の値で上書き
-        newSlide.number = finalNumber;
-        
-        // 5. 'description' フィールドに、抽出した日本語テキストを追記
-        // (すでに追加済みでないかチェック)
-        if (extraTextFound && newSlide.description && !newSlide.description.includes(extraTextFound)) {
-          newSlide.description = newSlide.description + extraTextFound;
-        } else if (extraTextFound && !newSlide.description) {
-          // description が空だった場合は、そのままセット
-          newSlide.description = extraTextFound;
-        }
-
-        // 修正が発生したことを記録
-        notification = "【自動修正】'重要数値' スライドの 'number' フィールドから不要なテキスト（例: '削減'）を検出し、'description' フィールドに自動的に移動しました。";
-        return newSlide;
-      }
-
-      // 修正がなければ元のスライドを返す
-      return slide;
-    });
-
-    return { sanitizedOutline, notification };
-  };
-
   // --- Handlers ---
   const handleApiKeySave = () => {
     if (tempApiKey) {
       localStorage.setItem('gemini_api_key', tempApiKey);
       setApiKey(tempApiKey);
       setIsApiKeyModalOpen(false);
-      setMessages([{ type: 'system', text: 'APIキーが保存されました。スライドの元になるドキュメントをアップロードしてください。' }]);
+      const text = 'APIキーが保存されました。スライドの元になるドキュメントをアップロードしてください。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleApiKeySave', text);
     }
   };
 
@@ -1906,7 +1955,9 @@ export default function App() {
       // onTextExtracted は内部でテキストを引数に取るため、ここでは直接呼び出さず、
       // ユーザーに再アップロードを促すか、抽出済みテキストをStateに持つ必要がある。
       // 今回はシンプルにするため、再度Markdown承認ステップから開始させる。
-      setMessages(prev => [...prev, { type: 'system', text: '再試行します。内容を再度承認してください。' }]);
+      const text = '再試行します。内容を再度承認してください。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_INFO', 'handleRetry: structure', text);
       setApiErrorStep(null);
       setAppStatus(APP_STATUS.STRUCTURED);
     } else if (apiErrorStep === 'outline') {
@@ -1927,38 +1978,48 @@ export default function App() {
     if (!file) return;
     const allowedTypes = ['application/pdf', 'text/plain', 'text/markdown'];
     if (!allowedTypes.includes(file.type)) {
-      setMessages(prev => [...prev, { type: 'system', text: `サポートされていないファイル形式です: ${file.type}` }]);
+      const text = `サポートされていないファイル形式です: ${file.type}`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleFileSelect', text);
       return;
     }
 
     setFileName(file.name);
     setIsProcessing(true);
     setProcessingStatus('テキストを抽出中...');
-    setMessages(prev => [...prev, { type: 'system', text: `${file.name} をアップロードしました。`}]);
+    const text = `${file.name} をアップロードしました。`;
+    setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_SYSTEM', 'handleFileSelect', text);
 
     try {
-      let text = '';
+      let extractedText = '';
       if (file.type === 'application/pdf') {
         const typedarray = new Uint8Array(await file.arrayBuffer());
         const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const textData = await page.getTextContent();
-          text += textData.items.map(s => s.str).join(' ');
+          extractedText += textData.items.map(s => s.str).join(' ');
         }
       } else {
-        text = await file.text();
+        extractedText = await file.text();
       }
-      onTextExtracted(text);
+      addLogEntry('SYSTEM_EVENT', 'handleFileSelect', `Text extraction complete. Length: ${extractedText.length}`);
+      onTextExtracted(extractedText);
     } catch (error) {
-        setMessages(prev => [...prev, { type: 'system', text: 'テキスト抽出中にエラーが発生しました。' }]);
+        const text = 'テキスト抽出中にエラーが発生しました。';
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM_ERROR', 'handleFileSelect', `${text} ${error.message}`);
         setIsProcessing(false);
         setFileName('');
     }
   };
 
   const onTextExtracted = async (text) => {
-    setMessages(prev => [...prev, { type: 'system', text: `テキスト抽出完了(${text.length}文字)。内容を構造化します。` }]);
+    const msg1 = `テキスト抽出完了(${text.length}文字)。内容を構造化します。`;
+    setMessages(prev => [...prev, { type: 'system', text: msg1, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_SYSTEM', 'onTextExtracted', msg1);
+    
     setAppStatus(APP_STATUS.STRUCTURING);
     setProcessingStatus('テキストを構造化中...');
     setApiErrorStep(null); // 再試行の前にエラー状態をリセット
@@ -2030,20 +2091,23 @@ export default function App() {
           const audienceJp = CONTEXT_TRANSLATIONS.audience[parsedContext.audience] || parsedContext.audience;
           
           // チャットに分析結果を表示する
-          setMessages(prev => [...prev, { 
-            type: 'system', 
-            text: `文脈分析が完了しました。\n- **目的**: ${purposeJp}\n- **対象者**: ${audienceJp}`
-          }]);
+          const text = `文脈分析が完了しました。\n- **目的**: ${purposeJp}\n- **対象者**: ${audienceJp}`;
+          setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+          addLogEntry('UI_SYSTEM', 'onTextExtracted (Context)', text);
           // ▲▲▲ 修正・追加ここまで ▲▲▲
 
         } catch (e) {
           console.error('[FATAL] Failed to parse document context JSON:', e);
-          setMessages(prev => [...prev, { type: 'system', text: '文脈分析の結果解析に失敗しました。' }]);
+          const text = '文脈分析の結果解析に失敗しました。';
+          setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+          addLogEntry('UI_SYSTEM_ERROR', 'onTextExtracted (Context Parse)', `${text} ${e.message}`);
           hasError = true; // エラーフラグ
         }
       } else {
         // API自体がエラーを返した場合
-        setMessages(prev => [...prev, { type: 'system', text: contextResult ? contextResult.error : '文脈分析中に予期せぬエラーが発生しました。' }]);
+        const text = contextResult ? contextResult.error : '文脈分析中に予期せぬエラーが発生しました。';
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM_ERROR', 'onTextExtracted (Context API)', text);
         hasError = true; // エラーフラグ
       }
 
@@ -2051,11 +2115,15 @@ export default function App() {
       if (structureResult && !structureResult.error) {
         setStructuredMarkdown(structureResult);
         setAppStatus(APP_STATUS.STRUCTURED);
-        setMessages(prev => [...prev, { type: 'system', text: 'テキストの構造化が完了しました。' }]);
+        const text = 'テキストの構造化が完了しました。';
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM', 'onTextExtracted (Structure)', text);
       } else {
         // エラーハンドリング
         setApiErrorStep('structure');
-        setMessages(prev => [...prev, { type: 'system', text: structureResult ? structureResult.error : '予期せぬエラーが発生しました。' }]);
+        const text = structureResult ? structureResult.error : '予期せぬエラーが発生しました。';
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM_ERROR', 'onTextExtracted (Structure API)', text);
       }
 
       // どちらかでエラーがあった場合、Markdown承認ステップには進ませない
@@ -2072,13 +2140,17 @@ export default function App() {
       setIsProcessing(false);
       setCurrentTotalWaitTime(0);
       setApiErrorStep('structure');
-      setMessages(prev => [...prev, { type: 'system', text: `予期せぬエラーが発生しました: ${error.message}` }]);
+      const text = `予期せぬエラーが発生しました: ${error.message}`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_FATAL', 'onTextExtracted (Catch)', text);
     }
   };
 
   const handleRegenerateStructure = async () => {
     if (!originalExtractedText) {
-      setMessages(prev => [...prev, { type: 'system', text: 'エラー: 元のテキストが見つかりません。' }]);
+      const text = 'エラー: 元のテキストが見つかりません。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleRegenerateStructure', text);
       return;
     }
     
@@ -2086,7 +2158,10 @@ export default function App() {
       return;
     }
 
-    setMessages(prev => [...prev, { type: 'system', text: 'テキストの再構造化を実行します...' }]);
+    const text1 = 'テキストの再構造化を実行します...';
+    setMessages(prev => [...prev, { type: 'system', text: text1, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_SYSTEM', 'handleRegenerateStructure', text1);
+    
     setAppStatus(APP_STATUS.STRUCTURING);
     setIsProcessing(true); // ★ FileUploadPanel をローディング表示にする
     setProcessingStatus('テキストを再構造化中...');
@@ -2100,18 +2175,24 @@ export default function App() {
     if (result && !result.error) {
       setStructuredMarkdown(result);
       setAppStatus(APP_STATUS.STRUCTURED); // ★ MarkdownEditor が表示されるステータスに戻す
-      setMessages(prev => [...prev, { type: 'system', text: 'テキストの再構造化が完了しました。' }]);
+      const text = 'テキストの再構造化が完了しました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleRegenerateStructure', text);
     } else {
       // エラーハンドリング
       setApiErrorStep('structure');
       setAppStatus(APP_STATUS.STRUCTURED); // ★ エラー時も編集画面には戻す
-      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せぬエラーが発生しました。' }]);
+      const text = result ? result.error : '予期せぬエラーが発生しました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleRegenerateStructure', text);
     }
   };
 
   const handleMarkdownApproval = () => {
     setAppStatus(APP_STATUS.SELECTING_THEME);
-    setMessages(prev => [...prev, { type: 'system', text: '内容が承認されました。次に、プレゼンテーションのテーマを選択してください。' }]);
+    const text = '内容が承認されました。次に、プレゼンテーションのテーマを選択してください。';
+    setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_SYSTEM', 'handleMarkdownApproval', text);
   };
 
   const handleThemeSelection = (themeKey) => {
@@ -2126,25 +2207,40 @@ export default function App() {
     setAppStatus(APP_STATUS.CREATING_OUTLINE);
     const themeName = THEMES[selectedTheme]?.name || '選択されたテーマ';
     const designName = design === 'dark' ? 'ダーク' : 'ライト';
+    
+    const userText = `${themeName}テーマ (${designName}) を選択`;
+    const systemText = 'テーマを承知しました。次に、アジェンダページを挿入しますか？';
+    
     setMessages(prev => [
       ...prev,
-      { type: 'user', text: `${themeName}テーマ (${designName}) を選択` },
-      { type: 'system', text: 'テーマを承知しました。次に、アジェンダページを挿入しますか？' }
+      { type: 'user', text: userText, timestamp: new Date().toISOString() },
+      { type: 'system', text: systemText, timestamp: new Date().toISOString() }
     ]);
+    addLogEntry('UI_USER', 'handleThemeApproval', userText);
+    addLogEntry('UI_SYSTEM', 'handleThemeApproval', systemText);
   }
 
   const handleAgendaChoice = (choice) => {
     setIncludeAgenda(choice);
     setAppStatus(APP_STATUS.SELECTING_SECTION_HEADERS);
+    
+    const userText = `アジェンダ: ${choice ? 'はい' : 'いいえ'}`;
+    const systemText = '主要なセクションの前に区切りスライドを自動挿入しますか？';
+    
     setMessages(prev => [
       ...prev,
-      { type: 'user', text: `アジェンダ: ${choice ? 'はい' : 'いいえ'}` },
-      { type: 'system', text: '主要なセクションの前に区切りスライドを自動挿入しますか？' }
+      { type: 'user', text: userText, timestamp: new Date().toISOString() },
+      { type: 'system', text: systemText, timestamp: new Date().toISOString() }
     ]);
+    addLogEntry('UI_USER', 'handleAgendaChoice', userText);
+    addLogEntry('UI_SYSTEM', 'handleAgendaChoice', systemText);
   };
   
   const handleSectionHeaderChoice = async (useSectionHeaders) => {
-    setMessages(prev => [...prev, { type: 'user', text: `セクションヘダー: ${useSectionHeaders ? 'はい' : 'いえ'}` }]);
+    const userText = `セクションヘダー: ${useSectionHeaders ? 'はい' : 'いえ'}`;
+    setMessages(prev => [...prev, { type: 'user', text: userText, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_USER', 'handleSectionHeaderChoice', userText);
+    
     setAppStatus(APP_STATUS.GENERATING_OUTLINE);
     setIsProcessing(true);
     setProcessingStatus('構成案を生成中...');
@@ -2207,12 +2303,16 @@ export default function App() {
               const fixedResult = result.replace(/\\/g, '\\\\');
               outline = JSON.parse(fixedResult);
               // ユーザーに自動修正したことを通知
-              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIの応答形式(エスケープ文字)を修正しました。" }]);
+              const text = "【自動修正】AIの応答形式(エスケープ文字)を修正しました。";
+              setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+              addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Parse)', text);
             } catch (fixError) {
                // 4. 修正してもパースに失敗した場合
                console.error('[FATAL] Backslash fix failed.', fixError);
                setApiErrorStep('outline');
-               setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+               const text = `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}`;
+               setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+               addLogEntry('UI_SYSTEM_ERROR', 'handleSectionHeaderChoice (Parse Fix 1)', text);
                return; // ここで処理を中断
             }
           } 
@@ -2224,12 +2324,16 @@ export default function App() {
               const fixedResult = result.replace(/[\n\r\t]/g, ' ');
               outline = JSON.parse(fixedResult);
               // ユーザーに自動修正したことを通知
-              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIの応答形式(制御文字)を修正しました。改行が失われた可能性があります。" }]);
+              const text = "【自動修正】AIの応答形式(制御文字)を修正しました。改行が失われた可能性があります。";
+              setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+              addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Parse)', text);
             } catch (fixError) {
                // 4. 修正してもパースに失敗した場合
                console.error('[FATAL] Control character fix failed.', fixError);
                setApiErrorStep('outline');
-               setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+               const text = `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}`;
+               setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+               addLogEntry('UI_SYSTEM_ERROR', 'handleSectionHeaderChoice (Parse Fix 2)', text);
                return; // ここで処理を中断
             }
           } 
@@ -2237,7 +2341,9 @@ export default function App() {
           else {
              // 5. 上記以外のエラーの場合
              setApiErrorStep('outline');
-             setMessages(prev => [...prev, { type: 'system', text: `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}` }]);
+             const text = `構成案の解析に失敗しました。AIの応答形式が不正です: ${error.message}`;
+             setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+             addLogEntry('UI_SYSTEM_ERROR', 'handleSectionHeaderChoice (Parse)', text);
              return; // ここで処理を中断
           }
         }
@@ -2375,7 +2481,9 @@ export default function App() {
               finalOutline.splice(1, 1, ...newAgendaSlides);
               
               // 3. ユーザーに通知
-              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】アジェンダの項目数が多いため、スライドを自動的に分割しました。" }]);
+              const text = "【自動修正】アジェンダの項目数が多いため、スライドを自動的に分割しました。";
+              setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+              addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Agenda Split)', text);
             }
           }
           // ▲▲▲ アジェンダ分割ロジックここまで ▲▲▲
@@ -2420,14 +2528,18 @@ export default function App() {
               // 2枚目（インデックス 1）に強制挿入
               finalOutline.splice(1, 0, ...newAgendaSlides);
               
-              setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。" }]);
+              const text = "【自動修正】AIがアジェンダを生成しなかったため、2枚目に自動挿入しました。";
+              setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+              addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Agenda Add)', text);
           }
         } else {
             // "いいえ" を選んだのに、有る場合
             if (hasAgenda) { // 2枚目がアジェンダだったら、という元のロジック
                 // 2枚目のアジェンダを削除
                 finalOutline.splice(1, 1);
-                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。" }]);
+                const text = "【自動修正】AIが不要なアジェンダを生成したため、2枚目から削除しました。";
+                setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+                addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Agenda Remove)', text);
             }
             // 念のため、2枚目以外のアジェンダも削除（1枚目は除く）
             finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'agenda');
@@ -2484,7 +2596,9 @@ export default function App() {
 
         // ユーザーに通知
         if (tableSplitOccurred) {
-          setMessages(prev => [...prev, { type: 'system', text: "【自動修正】表の行数が多いため、スライドを自動的に分割しました。" }]);
+          const text = "【自動修正】表の行数が多いため、スライドを自動的に分割しました。";
+          setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+          addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Table Split)', text);
         }
 
         // === 3. セクションヘッダーのチェックと修正 ===
@@ -2494,14 +2608,18 @@ export default function App() {
             // "はい" を選んだのに、無い場合
             if (!hasSectionHeaders) {
                 // 警告を出す
-                setMessages(prev => [...prev, { type: 'system', text: "【警告】セクションヘッダーの自動挿入（はい）を選択しましたが、AIが構成案に含めなかった可能性があります。構成案を確認してください。" }]);
+                const text = "【警告】セクションヘッダーの自動挿入（はい）を選択しましたが、AIが構成案に含めなかった可能性があります。構成案を確認してください。";
+                setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+                addLogEntry('UI_SYSTEM_WARN', 'handleSectionHeaderChoice (Section Header)', text);
             }
         } else {
             // "いいえ" を選んだのに、有る場合
             if (hasSectionHeaders) {
                 // 1枚目（title_slide）以外で、section_header を全て削除
                 finalOutline = finalOutline.filter((slide, index) => index === 0 || slide.template !== 'section_header');
-                setMessages(prev => [...prev, { type: 'system', text: "【自動修正】AIが不要なセクションヘダーを生成したため、構成案から削除しました。" }]);
+                const text = "【自動修正】AIが不要なセクションヘダーを生成したため、構成案から削除しました。";
+                setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+                addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Section Header)', text);
             }
         }
         // ▲▲▲ ルールチェックここまで ▲▲▲
@@ -2511,16 +2629,22 @@ export default function App() {
 
         // ▼▼▼ 【NEW】ガードレールの通知（もしあれば）を最後に追加 ▼▼▼
         if (guardNotification) {
-          setMessages(prev => [...prev, { type: 'system', text: guardNotification }]);
+          setMessages(prev => [...prev, { type: 'system', text: guardNotification, timestamp: new Date().toISOString() }]);
+          addLogEntry('SYSTEM_AUTO_FIX', 'handleSectionHeaderChoice (Guardrail)', guardNotification);
         }
+        // ▲▲▲ 【NEW】ここまで ▲▲▲
 
         // 構成案が生成されたことを示すメインのメッセージは最後に表示
-        setMessages(prev => [...prev, { type: 'system', text: "構成案を生成しました。内容を確認・編集してください。" }]);
+        const text = "構成案を生成しました。内容を確認・編集してください。";
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM', 'handleSectionHeaderChoice (Success)', text);
 
       } else {
         // エラーハンドリング (callGeminiApi自体のエラー)
         setApiErrorStep('outline');
-        setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '予期せずエラーが発生しました。' }]);
+        const text = result ? result.error : '予期せずエラーが発生しました。';
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM_ERROR', 'handleSectionHeaderChoice (API)', text);
       }
     } catch (error) {
       // (JSONパースエラーなどは既存のロジックで捕捉されるため、ここではシミュレーション自体のエラーを捕捉)
@@ -2529,8 +2653,11 @@ export default function App() {
       setIsProcessing(false);
       setCurrentTotalWaitTime(0);
       setApiErrorStep('outline');
-      setMessages(prev => [...prev, { type: 'system', text: `予期せぬエラーが発生しました: ${error.message}` }]);
+      const text = `予期せぬエラーが発生しました: ${error.message}`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_FATAL', 'handleSectionHeaderChoice (Catch)', text);
     }
+    // [ここまで変更]
   };
 
   const handleOutlineChange = (index, field, value) => {
@@ -2562,7 +2689,9 @@ export default function App() {
 
   const handleRegenerateOutline = () => {
     if (window.confirm('現在の構成案を破棄し、最初から再生成します。よろしいですか？')) {
-      setMessages(prev => [...prev, { type: 'system', text: '構成案の再生成をリクエストしました。' }]);
+      const text = '構成案の再生成をリクエストしました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleRegenerateOutline', text);
       
       // メッセージ履歴からセクションヘッダーの最後の選択を取得
       const lastChoiceText = messages.slice().reverse().find(m => m.type === 'user' && m.text.includes('セクションヘッダー:'))?.text;
@@ -2649,13 +2778,19 @@ export default function App() {
           return newOutline;
         });
 
-        setMessages(prev => [...prev, { type: 'system', text: `スライド ${slideIndex + 1} の内容を ${newTemplateName} 形式で再生成しました。` }]);
+        const text = `スライド ${slideIndex + 1} の内容を ${newTemplateName} 形式で再生成しました。`;
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM', 'handleRegenerateSlideContent', text);
         
       } catch (error) {
-        setMessages(prev => [...prev, { type: 'system', text: `内容の解析に失敗しました: ${error.message}` }]);
+        const text = `内容の解析に失敗しました: ${error.message}`;
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM_ERROR', 'handleRegenerateSlideContent (Parse)', text);
       }
     } else {
-      setMessages(prev => [...prev, { type: 'system', text: result ? result.error : '内容の再生成中にエラーが発生しました。' }]);
+      const text = result ? result.error : '内容の再生成中にエラーが発生しました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleRegenerateSlideContent (API)', text);
     }
     
     setIsProcessing(false);
@@ -2703,22 +2838,29 @@ export default function App() {
     if (resultJson && !resultJson.error) {
       try {
         const parsedResult = JSON.parse(resultJson);
+        let text = '';
         if (mode === 'all') {
           setSlideOutline(parsedResult);
-          setMessages(prev => [...prev, { type: 'system', text: '構成案全体を修正しました。' }]);
+          text = '構成案全体を修正しました。';
         } else if (mode === 'single' && index !== null) {
           setSlideOutline(prevOutline => {
             const newOutline = [...prevOutline];
             newOutline[index] = parsedResult;
             return newOutline;
           });
-          setMessages(prev => [...prev, { type: 'system', text: `スライド ${index + 1} を修正しました。` }]);
+          text = `スライド ${index + 1} を修正しました。`;
         }
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM', 'handleSubmitModification', text);
       } catch (error) {
-        setMessages(prev => [...prev, { type: 'system', text: `修正結果の解析に失敗しました: ${error.message}` }]);
+        const text = `修正結果の解析に失敗しました: ${error.message}`;
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM_ERROR', 'handleSubmitModification (Parse)', text);
       }
     } else {
-      setMessages(prev => [...prev, { type: 'system', text: resultJson ? resultJson.error : '修正中にエラーが発生しました。' }]);
+      const text = resultJson ? resultJson.error : '修正中にエラーが発生しました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleSubmitModification (API)', text);
     }
     
     setIsProcessing(false);
@@ -2729,7 +2871,9 @@ export default function App() {
     if (window.confirm('現在のスライドプレビューを破棄し、構成案の編集画面に戻ります。\nこれまでに承認したスライドは保持されます。\n\nよろしいですか？')) {
       setCurrentSlideHtml(''); // 現在のプレビューを破棄
       setAppStatus(APP_STATUS.OUTLINE_CREATED); // 構成案編集モードに戻る
-      setMessages(prev => [...prev, { type: 'system', text: "構成案の編集に戻りました。編集完了後、「構成案を承認し、スライド生成を開始する」ボタンを押してください。" }]);
+      const text = "構成案の編集に戻りました。編集完了後、「構成案を承認し、スライド生成を開始する」ボタンを押してください。";
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleReturnToOutline', text);
     }
   };
 
@@ -2757,7 +2901,9 @@ export default function App() {
     // --- 巻き戻し処理 ---
     if (restartIndex < currentGeneratedCount) {
       // 過去のスライドに変更があった場合
-      setMessages(prev => [...prev, { type: 'system', text: `[INFO] スライド ${restartIndex + 1} の構成案に変更が検出されたため、${restartIndex + 1} 枚目以降のスライドを再生成します。` }]);
+      const text = `[INFO] スライド ${restartIndex + 1} の構成案に変更が検出されたため、${restartIndex + 1} 枚目以降のスライドを再生成します。`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('SYSTEM_EVENT', 'handleStartGeneration (Diff)', text);
       
       // 承認済みHTML配列を、変更箇所の直前まで巻き戻す
       setGeneratedSlides(prevSlides => prevSlides.slice(0, restartIndex));
@@ -2776,12 +2922,16 @@ export default function App() {
     // 3. 生成を再開
     if (restartIndex < newOutline.length) {
       // 未生成のスライドがまだある場合
-      setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text: `構成案承認済。\n**ステップ2: スライド生成**\n（スライド ${restartIndex + 1} から）生成を再開します。`}]);
+      const text = `構成案承認済。\n**ステップ2: スライド生成**\n（スライド ${restartIndex + 1} から）生成を再開します。`;
+      setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleStartGeneration', text);
       generateSlide(restartIndex);
     } else {
       // 編集の結果、全スライドが承認済みになった（例：末尾を削除した）場合
       setAppStatus(APP_STATUS.ALL_SLIDES_GENERATED);
-      setMessages(prev => [...prev, { type: 'system', text: "構成案の編集が完了し、全てのスライドが承認済みです。\nZIPファイルをダウンロードできます。"}]);
+      const text = "構成案の編集が完了し、全てのスライドが承認済みです。\nZIPファイルをダウンロードできます。";
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleStartGeneration (All Done)', text);
     }
   };
 
@@ -2801,44 +2951,75 @@ export default function App() {
       const template = THEMES[selectedTheme].templates[currentSlide.template];
       if (!template) throw new Error(`テンプレート「${currentSlide.template}」がテーマ「${selectedTheme}」に見つかりません。`);
 
-      // ▼▼▼ 修正: 正規表現を \\+ (1つ以上のバックスラッシュ) に強化 ▼▼▼
-      // AIが \`**text**\` や \\**text**\` のようにエスケープした場合、 \`**text**\` に戻す
-      const cleanSummary = (currentSlide.summary || '')
-        .replace(/\\+([*_~`$])/g, '$1'); // \`*` -> `*`, \\* -> *
-      
-      const cleanDescription = (currentSlide.description || '')
-        .replace(/\\+([*_~`$])/g, '$1');
+      /**
+       * AIが生成したMarkdown文字列をサニタイズする
+       * 1. AIによる誤ったエスケープ（例: \**）を削除
+       * 2. marked.jsが日本語と記号（**）を誤認識するのを防ぐため、間にスペースを強制挿入
+       * 3. 太字対象の文字列（**...**の中身）を抽出して返す
+       * @returns {{cleanedText: string, boldedItems: string[]}}
+       */
+      const sanitizeMarkdown = (text) => {
+        if (typeof text !== 'string' || !text) {
+          return { cleanedText: '', boldedItems: [] };
+        }
         
-      const cleanContentTitle = (currentSlide.content_title || '')
-        .replace(/\\+([*_~`$])/g, '$1');
-      // ▲▲▲ 修正ここまで ▲▲▲
+        let cleaned = text;
+        
+        // 1. AIによる誤ったエスケープ（例: \** や \\**）を強制解除
+        cleaned = cleaned.replace(/\\+([*_~`$])/g, '$1');
+        
+        // 2. 太字部分を抽出する
+        const boldedItems = [];
+        const boldMatches = cleaned.matchAll(/\*\*(.*?)\*\*/g); 
+        for (const match of boldMatches) {
+          if (match[1] && match[1].trim().length > 0) {
+            boldedItems.push(match[1].trim());
+          }
+        }
+        
+        // 3. 【バグ修正】
+        // marked.jsの仕様対策としていた以下のロジックは、
+        // 現在のバージョンでは逆に** 98% **のように
+        // 不正なスペースを挿入してしまい、レンダリングが
+        // 失敗する原因となっていたため、削除します。
+        /*
+        // ** (Bold)
+        cleaned = cleaned.replace(/([^\s\n])(\*\*)/g, '$1 $2');
+        cleaned = cleaned.replace(/(\*\*)([^\s\n])/g, '$1 $2');
+        // __ (Bold)
+        cleaned = cleaned.replace(/([^\s\n])(__)/g, '$1 $2');
+        cleaned = cleaned.replace(/(__)([^\s\n])/g, '$1 $2');
+        */
+
+        return { cleanedText: cleaned, boldedItems };
+      };
+      
+      // このスライドで検出された太字リスト（後で通知する）
+      const allBoldedItems = new Set();
+
+      const { cleanedText: cleanSummary, boldedItems: summaryBoldItems } = sanitizeMarkdown(currentSlide.summary || '');
+      const { cleanedText: cleanDescription, boldedItems: descBoldItems } = sanitizeMarkdown(currentSlide.description || '');
+      const { cleanedText: cleanContentTitle, boldedItems: titleBoldItems } = sanitizeMarkdown(currentSlide.content_title || '');
+      
+      summaryBoldItems.forEach(item => allBoldedItems.add(item));
+      descBoldItems.forEach(item => allBoldedItems.add(item));
+      titleBoldItems.forEach(item => allBoldedItems.add(item));
 
       // summary や content を marked でパース
+      // ★【重要】ここの`marked`は、useEffectからKaTeXが削除されたグローバルインスタンス
       const replacements = {
         '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
         '{title}': currentSlide.title || '',
         
-        // ▼▼▼ 修正: cleanSummary を使用 ▼▼▼
-        // summary はインライン要素として解釈 (quote, math_basic などが使用)
         '{summary}': marked.parseInline(cleanSummary, { breaks: true }), 
-        // content (content_with_diagram, highlighted_number 用) はブロック要素(段落など)として解釈
         '{content}': marked.parse(cleanSummary, { breaks: true }), 
-        // ▲▲▲ 修正ここまで ▲▲▲
         
-        // --- 新規テンプレート用のプレースホルダー (Phase 4.3) ---
         '{number}': currentSlide.number || '', // highlighted_number 用
-        
-        // ▼▼▼ 修正: cleanDescription を使用 ▼▼▼
-        // (highlighted_number と quote テンプレートが使用)
         '{description}': marked.parseInline(cleanDescription, { breaks: true }), 
-        // ▲▲▲ 修正ここまで ▲▲▲
-
-        // ▼▼▼ 修正: cleanContentTitle を使用 ▼▼▼
         '{content_title}': marked.parseInline(cleanContentTitle, { breaks: true }), // highlighted_number 用
-        // ▲▲▲ 修正ここまで ▲▲▲
 
         // --- 既存のプレースホルダー（初期値） ---
-        '{formula}': '', 
+        '{formula}': '', // ★ math_basic 処理で上書きされる
         '{infographic_svg}': '',
         '{agenda_items_html}': '',
         '{items_html}': '',
@@ -2850,7 +3031,6 @@ export default function App() {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
         
-        // ★ 修正: PROMPTS.generateInfographic に design (dark/light) を渡す
         const svgPrompt = PROMPTS.generateInfographic(
           currentSlide.infographic.description,
           design // 'dark' または 'light'
@@ -2858,15 +3038,12 @@ export default function App() {
         
         const infographicSvgResult = await callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `SVG for Slide ${slideIndex + 1}`);
 
-        // ▼▼▼ 修正: エラーチェックとサニタイズ処理 ▼▼▼
         if (!infographicSvgResult || infographicSvgResult.error) {
           const errorMessage = infographicSvgResult?.error || "インフォグラフィックSVGの生成に失敗しました。";
           console.error(errorMessage);
-          // 既存のcatchブロック(line 1228)に処理を移譲するためエラーをスロー
           throw new Error(errorMessage); 
         }
         
-        // 成功した場合: AIの応答結果をサニタイズ（自動修正）する
         const sanitizedSvg = sanitizeSvg(infographicSvgResult);
         replacements['{infographic_svg}'] = sanitizedSvg;
       }
@@ -2875,7 +3052,6 @@ export default function App() {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        // 引数を icon_description から point オブジェクト全体に変更
         const iconPromises = currentSlide.points.map(point => {
           return getIconSvg(point); 
         });
@@ -2883,13 +3059,12 @@ export default function App() {
         const iconSvgs = await Promise.all(iconPromises);
         
         currentSlide.points.forEach((point, i) => {
-            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-            const cleanPointTitle = (point.title || '').replace(/\\+([*_~`$])/g, '$1');
-            const cleanPointSummary = (point.summary || '').replace(/\\+([*_~`$])/g, '$1');
-            // ▲▲▲ 修正ここまで ▲▲▲
+            const { cleanedText: cleanPointTitle, boldedItems: titleBold } = sanitizeMarkdown(point.title || '');
+            const { cleanedText: cleanPointSummary, boldedItems: summaryBold } = sanitizeMarkdown(point.summary || '');
+            titleBold.forEach(item => allBoldedItems.add(item));
+            summaryBold.forEach(item => allBoldedItems.add(item));
 
             replacements[`{point_${i + 1}_title}`] = cleanPointTitle;
-            // ★修正: point.summary を parseInline で変換
             replacements[`{point_${i + 1}_summary}`] = marked.parseInline(cleanPointSummary, { breaks: true }); 
             replacements[`{icon_${i + 1}_svg}`] = iconSvgs[i] || ``;
         });
@@ -2898,38 +3073,33 @@ export default function App() {
       
 
       if (currentSlide.template === 'agenda') {
-        // ★修正: <li> の中身を parseInline で変換
         const agendaItems = currentSlide.summary.split('\n').map(item => {
-          // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-          const cleanItem = item.replace(/^\s*\d+\.\s*/, '').replace(/\\+([*_~`$])/g, '$1');
-          // ▲▲▲ 修正ここまで ▲▲▲
+          const { cleanedText: cleanItem, boldedItems: itemBold } = sanitizeMarkdown(item.replace(/^\s*\d+\.\s*/, ''));
+          itemBold.forEach(item => allBoldedItems.add(item));
           return `<li>${marked.parseInline(cleanItem || '', { breaks: true })}</li>`; 
         }).join('');
         replacements['{agenda_items_html}'] = agendaItems;
       }
 
+      // ▼▼▼ 修正: KaTeX拡張機能をローカルでのみ使用 ▼▼▼
       // math_basic テンプレートの処理
       if (currentSlide.template === 'math_basic' && currentSlide.formula) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        // ▼▼▼ 修正 ▼▼▼
+        // ★【NEW】KaTeX拡張機能を持つ、markedの*ローカルインスタンス*を作成
+        const markedWithKatex = new Marked();
+        markedWithKatex.use(markedKatex({
+          throwOnError: false
+        }));
         
-        // 1. AIが生成したKaTeX文字列（$$...$$）を取得
         const formulaString = (currentSlide.formula || '');
-        
-        // 2. KaTeXの改行命令（\\）以外の、Markdownソース上の改行コード（\n）を
-        //    すべて半角スペースに置換します。
-        //    これにより、marked.parse() が \n を <br> タグに変換するのを物理的に防ぎます。
-        //    KaTeXの \\ は \n ではないため、この置換の影響を受けません。
         const cleanedFormula = formulaString.replace(/\n/g, ' ');
 
-        // 3. marked.parse() を呼び出す際、{ breaks: false } を明示的に指定し、
-        //    グローバル設定（もしあれば）を上書きして改行の自動挿入を禁止します。
-        replacements['{formula}'] = marked.parse(cleanedFormula, { breaks: false });
-        
-        // ▲▲▲ 修正ここまで ▲▲▲
+        // ★【NEW】ローカルインスタンスの .parse() を使用
+        replacements['{formula}'] = markedWithKatex.parse(cleanedFormula, { breaks: false });
       }
+      // ▲▲▲ 修正ここまで ▲▲▲
       
       if (['vertical_steps', 'content_basic'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
         setThinkingState('designing');
@@ -2938,10 +3108,10 @@ export default function App() {
         let itemsHtml = '';
         if(currentSlide.template === 'vertical_steps') {
           itemsHtml = currentSlide.items.map((item, i) => {
-            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-            const cleanTitle = (item.title || '').replace(/\\+([*_~`$])/g, '$1');
-            const cleanDescription = (item.description || '').replace(/\\+([*_~`$])/g, '$1');
-            // ▲▲▲ 修正ここまで ▲▲▲
+            const { cleanedText: cleanTitle, boldedItems: titleBold } = sanitizeMarkdown(item.title || '');
+            const { cleanedText: cleanDescription, boldedItems: descBold } = sanitizeMarkdown(item.description || '');
+            titleBold.forEach(item => allBoldedItems.add(item));
+            descBold.forEach(item => allBoldedItems.add(item));
             return `
               <div class="step">
                 <div class="step-marker">${i + 1}</div>
@@ -2955,55 +3125,42 @@ export default function App() {
             const trimmedItem = item || '';
             const leadingSpaces = trimmedItem.match(/^(\s*)/)[0].length;
             
-            // ★修正: 先頭のスペースを除去した後、AIが誤って挿入したマーカーも除去
             let textContent = trimmedItem.trim();
-            
-            // '1. ' や '* ' や '- ' や '・ ' などを正規表現で強制的に削除
-            // 日本語の「・」や「●」「■」も対象に追加し、スペースが0個でもマッチするよう \s* に変更
             textContent = textContent.replace(/^([\*\-\・\●\■]|(\d+\.)|[a-z]\.)\s*/, ''); 
+            
+            const { cleanedText: textContentCleaned, boldedItems: itemBold } = sanitizeMarkdown(textContent);
+            itemBold.forEach(item => allBoldedItems.add(item));
 
-            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-            textContent = textContent.replace(/\\+([*_~`$])/g, '$1');
-            // ▲▲▲ 修正ここまで ▲▲▲
-
-            // スペース2個で1レベル (2em) のインデントとする
             const indentLevel = Math.floor(leadingSpaces / 2); // 0, 1, 2...
             const indentStyle = indentLevel > 0 ? `style="margin-left: ${indentLevel * 2}em;"` : '';
             
-            // data-level 属性を付与（アイコン変更に必須）
-            return `<li data-level="${indentLevel}" ${indentStyle}>${marked.parseInline(textContent || '', { breaks: true })}</li>`; 
+            return `<li data-level="${indentLevel}" ${indentStyle}>${marked.parseInline(textContentCleaned || '', { breaks: true })}</li>`; 
           }).join('');
         }
         replacements['{items_html}'] = itemsHtml;
       }
 
       if (currentSlide.template === 'comparison' && Array.isArray(currentSlide.columns)) {
-        // columns 配列をループ処理して、各カラムのHTMLを生成
         const columnsHtml = currentSlide.columns.map(column => {
-            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-            const title = (column.title || '').replace(/\\+([*_~`$])/g, '$1');
-            // ▲▲▲ 修正ここまで ▲▲▲
+            const { cleanedText: title, boldedItems: titleBold } = sanitizeMarkdown(column.title || '');
+            titleBold.forEach(item => allBoldedItems.add(item));
             
-            // カラム内の箇条書きHTMLを生成
             const itemsHtml = Array.isArray(column.items)
                 ? column.items.map(item => {
-                  // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-                  const cleanItem = (item || '').replace(/\\+([*_~`$])/g, '$1');
-                  // ▲▲▲ 修正ここまで ▲▲▲
+                  const { cleanedText: cleanItem, boldedItems: itemBold } = sanitizeMarkdown(item || '');
+                  itemBold.forEach(item => allBoldedItems.add(item));
                   return `<li>${marked.parseInline(cleanItem, { breaks: true })}</li>`
                 }).join('')
                 : '';
                 
-            // standardTheme.js の .column クラスに合わせたHTMLを返す
             return `
                 <div class="column">
                     <h2>${title}</h2>
                     <ul>${itemsHtml}</ul>
                 </div>
             `;
-        }).join(''); // 全カラムのHTMLを結合
+        }).join('');
 
-        // プレースホルダーを `{comparison_columns_html}` に変更
         replacements['{comparison_columns_html}'] = columnsHtml;
       }
 
@@ -3012,26 +3169,22 @@ export default function App() {
         await new Promise(resolve => setTimeout(resolve, 800));
 
         let tableHtml = '<thead><tr>';
-        // ヘッダー生成 (marked.parseInline を使用)
         if (Array.isArray(currentSlide.table.headers)) {
           tableHtml += currentSlide.table.headers.map(header => {
-            // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-            const cleanHeader = (header || '').replace(/\\+([*_~`$])/g, '$1');
-            // ▲▲▲ 修正ここまで ▲▲▲
+            const { cleanedText: cleanHeader, boldedItems: headerBold } = sanitizeMarkdown(header || '');
+            headerBold.forEach(item => allBoldedItems.add(item));
             return `<th>${marked.parseInline(cleanHeader, { breaks: true })}</th>`
           }).join(''); 
         }
         tableHtml += '</tr></thead>';
         
-        // 行データ生成 (marked.parseInline を使用)
         tableHtml += '<tbody>';
         if (Array.isArray(currentSlide.table.rows)) {
           tableHtml += currentSlide.table.rows.map(row => {
             let rowHtml = '<tr>';
             rowHtml += row.map(cell => {
-              // ▼▼▼ 修正: 正規表現を \\+ に強化 ▼▼▼
-              const cleanCell = (cell || '').replace(/\\+([*_~`$])/g, '$1');
-              // ▲▲▲ 修正ここまで ▲▲▲
+              const { cleanedText: cleanCell, boldedItems: cellBold } = sanitizeMarkdown(cell || '');
+              cellBold.forEach(item => allBoldedItems.add(item));
               return `<td>${marked.parseInline(cleanCell, { breaks: true })}</td>`
             }).join(''); 
             rowHtml += '</tr>';
@@ -3047,19 +3200,31 @@ export default function App() {
       await new Promise(resolve => setTimeout(resolve, 800));
 
       finalHtml = Object.entries(replacements).reduce((acc, [key, value]) => {
-          // ▼▼▼ ここを修正 ▼▼▼
-          // `\S` (大文字) を `\\` (バックスラッシュ) に修正
           const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-          // ▲▲▲ 修正ここまで ▲▲▲
           return acc.replace(regex, value);
       }, template);
 
-      setMessages(prev => [...prev, { type: 'system', text: `スライド「${currentSlide.title}」が生成されました。\nプレビューで確認し、承認してください。`}]);
+      // ログとUIへの通知
+      const uniqueBoldedItems = [...allBoldedItems];
+      let boldNotification = null;
+      if (uniqueBoldedItems.length > 0) {
+        const boldTextList = uniqueBoldedItems.map(item => `「${item}」`).join(', ');
+        const logText = `Bold items found: ${boldTextList}`;
+        addLogEntry('DEBUG_INFO', 'generateSlide (Boldify)', logText);
+        
+        boldNotification = `（太字として認識： ${boldTextList}）`;
+      }
+
+      const text = `スライド「${currentSlide.title}」が生成されました。\nプレビューで確認し、承認してください。${boldNotification ? `\n${boldNotification}` : ''}`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'generateSlide', text);
 
     } catch (error) {
         console.error("Slide generation failed:", error);
         finalHtml = '';
-        setMessages(prev => [...prev, { type: 'system', text: `スライド生成に失敗しました: ${error.message}。「承認して次へ」ボタンで再試行できます。`}]);
+        const text = `スライド生成に失敗しました: ${error.message}。「承認して次へ」ボタンで再試行できます。`;
+        setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+        addLogEntry('UI_SYSTEM_ERROR', 'generateSlide (Catch)', text);
     } finally {
         setThinkingState(null);
         setIsProcessing(false);
@@ -3082,13 +3247,16 @@ export default function App() {
             if (result.html && result.changes) {
                 setCurrentSlideHtml(result.html);
                 const changesMessage = `スライドを修正しました。\n\n**変更点:**\n${result.changes}`;
-                setMessages(prev => [...prev, { type: 'system', text: changesMessage }]);
+                setMessages(prev => [...prev, { type: 'system', text: changesMessage, timestamp: new Date().toISOString() }]);
+                addLogEntry('UI_SYSTEM', 'modifySlide', changesMessage);
             } else {
                  throw new Error("Invalid JSON structure from API.");
             }
         } catch (error) {
             console.error("Failed to parse JSON response for slide modification:", error);
-            setMessages(prev => [...prev, { type: 'system', text: `スライドの修正結果を解析できませんでした。内容が予期せぬ形式です。` }]);
+            const text = `スライドの修正結果を解析できませんでした。内容が予期せぬ形式です。`;
+            setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+            addLogEntry('UI_SYSTEM_ERROR', 'modifySlide (Parse)', text);
         }
     }
   };
@@ -3102,7 +3270,9 @@ export default function App() {
 
   const handleApproveAndNext = () => {
     if (!currentSlideHtml) {
-      setMessages(prev => [...prev, { type: 'system', text: `スライド生成を再試行します。` }]);
+      const text = `スライド生成を再試行します。`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_INFO', 'handleApproveAndNext (Retry)', text);
       generateSlide(currentSlideIndex);
       return;
     }
@@ -3115,17 +3285,22 @@ export default function App() {
     if (nextIndex < slideOutline.length) {
       setCurrentSlideIndex(nextIndex);
       const nextSlide = slideOutline[nextIndex];
-      setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text: `スライド ${currentSlideIndex + 1} を承認しました。\n次のスライド「${nextSlide.title}」の生成を開始します。`}]);
+      const text = `スライド ${currentSlideIndex + 1} を承認しました。\n次のスライド「${nextSlide.title}」の生成を開始します。`;
+      setMessages(prev => [...prev.filter(m => m.type !== 'system'), { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleApproveAndNext', text);
       generateSlide(nextIndex);
     } else {
       setAppStatus(APP_STATUS.ALL_SLIDES_GENERATED);
-      setMessages(prev => [...prev, { type: 'system', text: "全てのステップが完了しました！\n下のボタンからZIPファイルをダウンロードできます。"}]);
+      const text = "全てのステップが完了しました！\n下のボタンからZIPファイルをダウンロードできます。";
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleApproveAndNext (All Done)', text);
     }
   };
 
   const handleDownloadZip = async () => {
     setIsProcessing(true);
     setProcessingStatus('ZIPファイルを生成中...');
+    addLogEntry('SYSTEM_EVENT', 'handleDownloadZip', 'ZIP generation started.');
     try {
       const zip = new JSZip();
       generatedSlides.forEach((html, index) => {
@@ -3138,8 +3313,11 @@ export default function App() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      addLogEntry('SYSTEM_EVENT', 'handleDownloadZip', 'ZIP generation success.');
     } catch (error) {
-      setMessages(prev => [...prev, { type: 'system', text: `ZIPファイル生成中にエラーが発生しました: ${error.message}`}]);
+      const text = `ZIPファイル生成中にエラーが発生しました: ${error.message}`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleDownloadZip', text);
     } finally {
       setIsProcessing(false);
     }
@@ -3147,7 +3325,9 @@ export default function App() {
 
   const handleDownloadPdf = async () => {
     if (generatedSlides.length === 0) {
-      setMessages(prev => [...prev, { type: 'system', text: 'PDF化するスライドがありません。'}]);
+      const text = 'PDF化するスライドがありません。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_WARN', 'handleDownloadPdf', text);
       return;
     }
     
@@ -3155,13 +3335,18 @@ export default function App() {
     const BACKEND_URL = 'https://slide-pdf-backend-306538767892.asia-northeast1.run.app/generate-pdf';
     
     if (BACKEND_URL.includes('your-cloud-run-service-url')) {
-      setMessages(prev => [...prev, { type: 'system', text: 'エラー: App.jsx の BACKEND_URL を設定してください。'}]);
+      const text = 'エラー: App.jsx の BACKEND_URL を設定してください。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleDownloadPdf', text);
       return;
     }
 
     setIsGeneratingPdf(true);
     setProcessingStatus('PDFを生成中... (最大1〜2分かかります)');
-    setMessages(prev => [...prev, { type: 'system', text: 'バックエンドにPDF生成をリクエストしました...'}]);
+    const text = 'バックエンドにPDF生成をリクエストしました...';
+    setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_SYSTEM', 'handleDownloadPdf', text);
+    addLogEntry('SYSTEM_EVENT', 'handleDownloadPdf', `Requesting PDF from: ${BACKEND_URL}`);
 
     try {
       const response = await fetch(BACKEND_URL, {
@@ -3189,15 +3374,72 @@ export default function App() {
       link.click();
       document.body.removeChild(link);
       
-      setMessages(prev => [...prev, { type: 'system', text: 'PDFのダウンロードが完了しました。'}]);
+      const text = 'PDFのダウンロードが完了しました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleDownloadPdf', text);
 
     } catch (error) {
       console.error("PDF Download failed:", error);
-      setMessages(prev => [...prev, { type: 'system', text: `PDF生成エラー: ${error.message}`}]);
+      const text = `PDF生成エラー: ${error.message}`;
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleDownloadPdf', text);
     } finally {
       setIsGeneratingPdf(false);
       setProcessingStatus('');
     }
+  };
+
+  /**
+   * 【NEW】デバッグログをTXTファイルとしてダウンロードする
+   */
+  const handleDownloadChatLog = () => {
+    if (debugLog.length === 0) {
+      const text = 'ログはまだありません。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      // ログボタン押下自体はログに残す
+      addLogEntry('UI_SYSTEM_WARN', 'handleDownloadChatLog', text);
+      return;
+    }
+    
+    addLogEntry('SYSTEM_EVENT', 'handleDownloadChatLog', 'Log download triggered.');
+
+    let logContent = '--- スライド作成ジェネレーター デバッグログ ---\n\n';
+
+    debugLog.forEach(entry => {
+      logContent += '========================================\n';
+      logContent += `[Timestamp]: ${entry.timestamp}\n`;
+      logContent += `[Type]:      ${entry.type}\n`;
+      logContent += `[Context]:   ${entry.context}\n`;
+      logContent += '---------------- Data --------------------\n';
+      
+      // ★ご要望の「JSON等をそのまま」保存する処理
+      if (typeof entry.data === 'object') {
+        // オブジェクト（APIリクエストの prompt など）はJSON形式で保存
+        try {
+          logContent += JSON.stringify(entry.data, null, 2);
+        } catch (e) {
+          logContent += "[Error] Failed to stringify object data.";
+        }
+      } else {
+        // 文字列（UIメッセージや生のJSON応答）はそのまま保存
+        logContent += String(entry.data);
+      }
+      
+      logContent += '\n========================================\n\n';
+    });
+
+    const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // タイムスタンプに基づいたファイル名
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.download = `slide-generator-log-${timestamp}.txt`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleRegenerateCurrentSlide = () => {
@@ -3205,7 +3447,9 @@ export default function App() {
     if (appStatus !== APP_STATUS.SLIDE_GENERATED) return;
 
     const slideTitle = slideOutline[currentSlideIndex]?.title || '';
-    setMessages(prev => [...prev, { type: 'system', text: `スライド「${slideTitle}」を再生成します。`}]);
+    const text = `スライド「${slideTitle}」を再生成します。`;
+    setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_SYSTEM', 'handleRegenerateCurrentSlide', text);
     
     // 現在のHTMLをクリアして、プレビューをローディング状態に戻す
     setCurrentSlideHtml(''); 
@@ -3217,7 +3461,8 @@ export default function App() {
 
   const handleSendMessage = () => {
     if (!userInput.trim() || appStatus !== APP_STATUS.SLIDE_GENERATED) return;
-    setMessages(prev => [...prev, { type: 'user', text: userInput }]);
+    setMessages(prev => [...prev, { type: 'user', text: userInput, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_USER', 'handleSendMessage (Modify Slide)', userInput);
     modifySlide(userInput);
     setUserInput('');
   };
@@ -3230,7 +3475,9 @@ export default function App() {
   const handleApplyCodeChanges = () => {
     setCurrentSlideHtml(editableHtml);
     setIsCodeEditorOpen(false);
-    setMessages(prev => [...prev, { type: 'system', text: '手動での変更が適用されました。プレビューで確認してください。' }]);
+    const text = '手動での変更が適用されました。プレビューで確認してください。';
+    setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+    addLogEntry('UI_SYSTEM', 'handleApplyCodeChanges', text);
   };
 
   const handleCancelCodeEdit = () => {
@@ -3257,7 +3504,12 @@ export default function App() {
 
   return (
     <div className="bg-[#1e1e1e] h-screen w-screen flex flex-col font-sans text-white">
-      <AppHeader onSettingsClick={() => setIsApiKeyModalOpen(true)} />
+      {/* ▼▼▼ AppHeaderに関数を渡す ▼▼▼ */}
+      <AppHeader 
+        onSettingsClick={() => setIsApiKeyModalOpen(true)} 
+        onDownloadLog={handleDownloadChatLog}
+      />
+      {/* ▲▲▲ 修正ここまで ▲▲▲ */}
 
       <main className="flex-grow flex p-6 gap-6 overflow-hidden">
         
@@ -3298,7 +3550,7 @@ export default function App() {
               // 以前の複雑なロジックから、新しい変数に置き換え
               isLoading={isPreviewLoading}
               // ローディングタイトルも新しい変数に置き換え
-              loadingSlideTitle={loadingTitle}
+              loadingTitle={loadingTitle}
             />
           )}
         </div>
