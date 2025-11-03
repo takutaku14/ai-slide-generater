@@ -2968,8 +2968,7 @@ export default function App() {
       /**
        * AIが生成したMarkdown文字列をサニタイズする
        * 1. AIによる誤ったエスケープ（例: \**）を削除
-       * 2. marked.jsが日本語と記号（**）を誤認識するのを防ぐため、間にスペースを強制挿入
-       * 3. 太字対象の文字列（**...**の中身）を抽出して返す
+       * 2. 太字対象の文字列（**...**の中身）を抽出して返す
        * @returns {{cleanedText: string, boldedItems: string[]}}
        */
       const sanitizeMarkdown = (text) => {
@@ -2983,6 +2982,7 @@ export default function App() {
         cleaned = cleaned.replace(/\\+([*_~`$])/g, '$1');
         
         // 2. 太字部分を抽出する
+        // (スペース挿入ロジックは削除し、元の正規表現に戻す)
         const boldedItems = [];
         const boldMatches = cleaned.matchAll(/\*\*(.*?)\*\*/g); 
         for (const match of boldMatches) {
@@ -2990,55 +2990,139 @@ export default function App() {
             boldedItems.push(match[1].trim());
           }
         }
-        
-        // 3. 【バグ修正】
-        // marked.jsの仕様対策としていた以下のロジックは、
-        // 現在のバージョンでは逆に** 98% **のように
-        // 不正なスペースを挿入してしまい、レンダリングが
-        // 失敗する原因となっていたため、削除します。
-        /*
-        // ** (Bold)
-        cleaned = cleaned.replace(/([^\s\n])(\*\*)/g, '$1 $2');
-        cleaned = cleaned.replace(/(\*\*)([^\s\n])/g, '$1 $2');
-        // __ (Bold)
-        cleaned = cleaned.replace(/([^\s\n])(__)/g, '$1 $2');
-        cleaned = cleaned.replace(/(__)([^\s\n])/g, '$1 $2');
-        */
 
         return { cleanedText: cleaned, boldedItems };
       };
-      
-      // このスライドで検出された太字リスト（後で通知する）
-      const allBoldedItems = new Set();
 
-      const { cleanedText: cleanSummary, boldedItems: summaryBoldItems } = sanitizeMarkdown(currentSlide.summary || '');
-      const { cleanedText: cleanDescription, boldedItems: descBoldItems } = sanitizeMarkdown(currentSlide.description || '');
-      const { cleanedText: cleanContentTitle, boldedItems: titleBoldItems } = sanitizeMarkdown(currentSlide.content_title || '');
-      
-      summaryBoldItems.forEach(item => allBoldedItems.add(item));
-      descBoldItems.forEach(item => allBoldedItems.add(item));
-      titleBoldItems.forEach(item => allBoldedItems.add(item));
+      /**
+       * Markdownをパースし、期待される太字がHTMLに反映されているか検証・ログ出力する
+       * @param {string} rawMarkdown - サニタイズ前のMarkdownテキスト
+       * @param {object} options - { isInline: boolean, breaks: boolean, context: string }
+       * @returns {string} パース後のHTML文字列
+       */
+      const parseMarkdownAndVerifyBold = (rawMarkdown, options) => {
+        const { isInline = false, breaks = false, context = 'Unknown' } = options;
+        
+        // 1. サニタイズ実行
+        const { cleanedText, boldedItems: expectedBoldItems } = sanitizeMarkdown(rawMarkdown || '');
+        
+        // 2. marked.js でパース実行
+        const parser = isInline
+          ? (text) => marked.parseInline(text) // parseInline はオプションを受け取らない
+          : (text) => marked.parse(text, { breaks }); // parse はオプションを受け取る
+        
+        let parsedHtml = parser(cleanedText); // ★ let に変更
+        
+        // 3. 検証 (期待される太字リストがある場合のみ)
+        if (expectedBoldItems.length > 0) {
+          let allConverted = true;
+          const failedItems = [];
 
-      // summary や content を marked でパース
-      // ★【重要】ここの`marked`は、useEffectからKaTeXが削除されたグローバルインスタンス
+          for (const item of expectedBoldItems) {
+            // HTMLエンティティ（例: ' -> &#39;）をデコードしてから比較
+            const decodedHtml = parsedHtml
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .replace(/&amp;/g, '&');
+            
+            // <strong>タグで囲まれているかチェック
+            if (!decodedHtml.includes(`<strong>${item}</strong>`)) {
+              allConverted = false;
+              failedItems.push(item);
+            }
+          }
+
+          // 4. ログ出力 と ★【NEW】フォールバック処理★
+          const logContext = `Slide ${slideIndex + 1} (${context})`;
+
+          if (allConverted) {
+            // 成功時
+            const successMsg = `[SUCCESS] Bold conversion OK. Items: [${expectedBoldItems.join(', ')}]`;
+            console.log(successMsg);
+            addLogEntry('DEBUG_SUCCESS', logContext, successMsg);
+          } else {
+            // 失敗時
+            const errorContext = {
+              message: `[FAILED] Bold conversion error. Failed items: [${failedItems.join(', ')}]`,
+              failedItems: failedItems,
+              expectedItems: expectedBoldItems,
+              cleanedText: cleanedText,
+              parsedHtmlBeforeFallback: parsedHtml, // ★修正前のHTMLを記録
+              rawInput: rawMarkdown
+            };
+            const errorMsgForConsole = `[FAILED] Bold conversion error. Failed items: [${failedItems.join(', ')}]. Applying fallback...`;
+            
+            console.warn(errorMsgForConsole, errorContext); // ★ErrorからWarnに変更
+            addLogEntry('DEBUG_WARN', logContext, errorContext); // ★ErrorからWarnに変更
+
+            // --- ★【NEW】フォールバック（強制置換）処理 ---
+            let fallbackHtml = parsedHtml;
+            
+            // 正規表現で使われる可能性のある文字をエスケープするヘルパー関数
+            const escapeRegExp = (string) => {
+              return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            };
+
+            for (const itemToFix of failedItems) {
+              // 失敗した項目（例: "98%"）の、生のMarkdown記法（例: "**98%**"）を検索
+              // cleanedText ではなく fallbackHtml に対して置換を行う
+              
+              // 1. `**item**` の形式（スペースなし）
+              const regexNoSpace = new RegExp(escapeRegExp(`**${itemToFix}**`), 'g');
+              fallbackHtml = fallbackHtml.replace(regexNoSpace, `<strong>${itemToFix}</strong>`);
+              
+              // 2. `** item **` の形式（marked.jsが内部で追加したスペースの残骸）
+              const regexWithSpace = new RegExp(escapeRegExp(`** ${itemToFix} **`), 'g');
+              fallbackHtml = fallbackHtml.replace(regexWithSpace, `<strong>${itemToFix}</strong>`);
+            }
+            
+            // 置換後のHTMLを最終結果として採用
+            parsedHtml = fallbackHtml;
+            // --- フォールバック処理ここまで ---
+          }
+        }
+        
+        // 5. パース結果（またはフォールバック後の結果）を返す
+        return parsedHtml;
+      };
+
       const replacements = {
-        '{theme_class}': `theme-${design}`, // デザイン(dark/light)をクラスとして適用
+        '{theme_class}': `theme-${design}`,
         '{title}': currentSlide.title || '',
         
-        '{summary}': marked.parseInline(cleanSummary, { breaks: true }), 
-        '{content}': marked.parse(cleanSummary, { breaks: true }), 
+        '{summary}': parseMarkdownAndVerifyBold(currentSlide.summary || '', {
+          isInline: true,
+          breaks: true,
+          context: 'summary'
+        }),
+        '{content}': parseMarkdownAndVerifyBold(currentSlide.summary || '', {
+          isInline: false,
+          breaks: true,
+          context: 'content (from summary)'
+        }),
         
-        '{number}': currentSlide.number || '', // highlighted_number 用
-        '{description}': marked.parseInline(cleanDescription, { breaks: true }), 
-        '{content_title}': marked.parseInline(cleanContentTitle, { breaks: true }), // highlighted_number 用
+        '{number}': currentSlide.number || '', 
+        
+        '{description}': parseMarkdownAndVerifyBold(currentSlide.description || '', {
+          isInline: true,
+          breaks: true,
+          context: 'description'
+        }),
+        '{content_title}': parseMarkdownAndVerifyBold(currentSlide.content_title || '', {
+          isInline: true,
+          breaks: true,
+          context: 'content_title'
+        }), 
 
         // --- 既存のプレースホルダー（初期値） ---
-        '{formula}': '', // ★ math_basic 処理で上書きされる
+        '{formula}': '', 
         '{infographic_svg}': '',
         '{agenda_items_html}': '',
         '{items_html}': '',
-        '{comparison_columns_html}': '', // (後続のロジックで上書き)
-        '{table_html}': '', // (後続のロジックで上書き)
+        '{comparison_columns_html}': '',
+        '{table_html}': '',
       };
       
       if (currentSlide.infographic?.needed) {
@@ -3047,7 +3131,7 @@ export default function App() {
         
         const svgPrompt = PROMPTS.generateInfographic(
           currentSlide.infographic.description,
-          design // 'dark' または 'light'
+          design 
         );
         
         const infographicSvgResult = await callGeminiApi(svgPrompt, 'gemini-2.5-flash-lite', `SVG for Slide ${slideIndex + 1}`);
@@ -3073,35 +3157,34 @@ export default function App() {
         const iconSvgs = await Promise.all(iconPromises);
         
         currentSlide.points.forEach((point, i) => {
-            const { cleanedText: cleanPointTitle, boldedItems: titleBold } = sanitizeMarkdown(point.title || '');
-            const { cleanedText: cleanPointSummary, boldedItems: summaryBold } = sanitizeMarkdown(point.summary || '');
-            titleBold.forEach(item => allBoldedItems.add(item));
-            summaryBold.forEach(item => allBoldedItems.add(item));
-
+            const { cleanedText: cleanPointTitle } = sanitizeMarkdown(point.title || '');
+            
             replacements[`{point_${i + 1}_title}`] = cleanPointTitle;
-            replacements[`{point_${i + 1}_summary}`] = marked.parseInline(cleanPointSummary, { breaks: true }); 
+            replacements[`{point_${i + 1}_summary}`] = parseMarkdownAndVerifyBold(point.summary || '', {
+              isInline: true,
+              breaks: true,
+              context: `point_${i + 1}_summary`
+            });
             replacements[`{icon_${i + 1}_svg}`] = iconSvgs[i] || ``;
         });
       }
 
-      
-
       if (currentSlide.template === 'agenda') {
-        const agendaItems = currentSlide.summary.split('\n').map(item => {
-          const { cleanedText: cleanItem, boldedItems: itemBold } = sanitizeMarkdown(item.replace(/^\s*\d+\.\s*/, ''));
-          itemBold.forEach(item => allBoldedItems.add(item));
-          return `<li>${marked.parseInline(cleanItem || '', { breaks: true })}</li>`; 
+        const agendaItems = currentSlide.summary.split('\n').map((item, i) => {
+          const textOnly = item.replace(/^\s*\d+\.\s*/, '');
+          return `<li>${parseMarkdownAndVerifyBold(textOnly || '', {
+            isInline: true,
+            breaks: true,
+            context: `agenda_item_${i + 1}`
+          })}</li>`;
         }).join('');
         replacements['{agenda_items_html}'] = agendaItems;
       }
 
-      // ▼▼▼ 修正: KaTeX拡張機能をローカルでのみ使用 ▼▼▼
-      // math_basic テンプレートの処理
       if (currentSlide.template === 'math_basic' && currentSlide.formula) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        // ★【NEW】KaTeX拡張機能を持つ、markedの*ローカルインスタンス*を作成
         const markedWithKatex = new Marked();
         markedWithKatex.use(markedKatex({
           throwOnError: false
@@ -3110,10 +3193,8 @@ export default function App() {
         const formulaString = (currentSlide.formula || '');
         const cleanedFormula = formulaString.replace(/\n/g, ' ');
 
-        // ★【NEW】ローカルインスタンスの .parse() を使用
         replacements['{formula}'] = markedWithKatex.parse(cleanedFormula, { breaks: false });
       }
-      // ▲▲▲ 修正ここまで ▲▲▲
       
       if (['vertical_steps', 'content_basic'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
         setThinkingState('designing');
@@ -3122,48 +3203,52 @@ export default function App() {
         let itemsHtml = '';
         if(currentSlide.template === 'vertical_steps') {
           itemsHtml = currentSlide.items.map((item, i) => {
-            const { cleanedText: cleanTitle, boldedItems: titleBold } = sanitizeMarkdown(item.title || '');
-            const { cleanedText: cleanDescription, boldedItems: descBold } = sanitizeMarkdown(item.description || '');
-            titleBold.forEach(item => allBoldedItems.add(item));
-            descBold.forEach(item => allBoldedItems.add(item));
+            const { cleanedText: cleanTitle } = sanitizeMarkdown(item.title || '');
+            
             return `
               <div class="step">
                 <div class="step-marker">${i + 1}</div>
                 <h2>${cleanTitle}</h2>
-                <p>${marked.parseInline(cleanDescription, { breaks: true })}</p> 
+                <p>${parseMarkdownAndVerifyBold(item.description || '', {
+                  isInline: true,
+                  breaks: true,
+                  context: `step_${i + 1}_description`
+                })}</p> 
               </div>
             `;
           }).join('');
         } else if (currentSlide.template === 'content_basic') {
-          itemsHtml = currentSlide.items.map(item => {
+          itemsHtml = currentSlide.items.map((item, i) => {
             const trimmedItem = item || '';
             const leadingSpaces = trimmedItem.match(/^(\s*)/)[0].length;
             
             let textContent = trimmedItem.trim();
             textContent = textContent.replace(/^([\*\-\・\●\■]|(\d+\.)|[a-z]\.)\s*/, ''); 
             
-            const { cleanedText: textContentCleaned, boldedItems: itemBold } = sanitizeMarkdown(textContent);
-            itemBold.forEach(item => allBoldedItems.add(item));
-
-            const indentLevel = Math.floor(leadingSpaces / 2); // 0, 1, 2...
+            const indentLevel = Math.floor(leadingSpaces / 2);
             const indentStyle = indentLevel > 0 ? `style="margin-left: ${indentLevel * 2}em;"` : '';
             
-            return `<li data-level="${indentLevel}" ${indentStyle}>${marked.parseInline(textContentCleaned || '', { breaks: true })}</li>`; 
+            return `<li data-level="${indentLevel}" ${indentStyle}>${parseMarkdownAndVerifyBold(textContent || '', {
+              isInline: true,
+              breaks: true,
+              context: `item_${i + 1}`
+            })}</li>`;
           }).join('');
         }
         replacements['{items_html}'] = itemsHtml;
       }
 
       if (currentSlide.template === 'comparison' && Array.isArray(currentSlide.columns)) {
-        const columnsHtml = currentSlide.columns.map(column => {
-            const { cleanedText: title, boldedItems: titleBold } = sanitizeMarkdown(column.title || '');
-            titleBold.forEach(item => allBoldedItems.add(item));
+        const columnsHtml = currentSlide.columns.map((column, i) => {
+            const { cleanedText: title } = sanitizeMarkdown(column.title || '');
             
             const itemsHtml = Array.isArray(column.items)
-                ? column.items.map(item => {
-                  const { cleanedText: cleanItem, boldedItems: itemBold } = sanitizeMarkdown(item || '');
-                  itemBold.forEach(item => allBoldedItems.add(item));
-                  return `<li>${marked.parseInline(cleanItem, { breaks: true })}</li>`
+                ? column.items.map((item, j) => {
+                  return `<li>${parseMarkdownAndVerifyBold(item || '', {
+                    isInline: true,
+                    breaks: true,
+                    context: `column_${i + 1}_item_${j + 1}`
+                  })}</li>`
                 }).join('')
                 : '';
                 
@@ -3184,22 +3269,26 @@ export default function App() {
 
         let tableHtml = '<thead><tr>';
         if (Array.isArray(currentSlide.table.headers)) {
-          tableHtml += currentSlide.table.headers.map(header => {
-            const { cleanedText: cleanHeader, boldedItems: headerBold } = sanitizeMarkdown(header || '');
-            headerBold.forEach(item => allBoldedItems.add(item));
-            return `<th>${marked.parseInline(cleanHeader, { breaks: true })}</th>`
+          tableHtml += currentSlide.table.headers.map((header, i) => {
+            return `<th>${parseMarkdownAndVerifyBold(header || '', {
+              isInline: true,
+              breaks: true,
+              context: `table_header_${i + 1}`
+            })}</th>`
           }).join(''); 
         }
         tableHtml += '</tr></thead>';
         
         tableHtml += '<tbody>';
         if (Array.isArray(currentSlide.table.rows)) {
-          tableHtml += currentSlide.table.rows.map(row => {
+          tableHtml += currentSlide.table.rows.map((row, i) => {
             let rowHtml = '<tr>';
-            rowHtml += row.map(cell => {
-              const { cleanedText: cleanCell, boldedItems: cellBold } = sanitizeMarkdown(cell || '');
-              cellBold.forEach(item => allBoldedItems.add(item));
-              return `<td>${marked.parseInline(cleanCell, { breaks: true })}</td>`
+            rowHtml += row.map((cell, j) => {
+              return `<td>${parseMarkdownAndVerifyBold(cell || '', {
+                isInline: true,
+                breaks: true,
+                context: `table_row_${i + 1}_cell_${j + 1}`
+              })}</td>`
             }).join(''); 
             rowHtml += '</tr>';
             return rowHtml;
@@ -3218,18 +3307,7 @@ export default function App() {
           return acc.replace(regex, value);
       }, template);
 
-      // ログとUIへの通知
-      const uniqueBoldedItems = [...allBoldedItems];
-      let boldNotification = null;
-      if (uniqueBoldedItems.length > 0) {
-        const boldTextList = uniqueBoldedItems.map(item => `「${item}」`).join(', ');
-        const logText = `Bold items found: ${boldTextList}`;
-        addLogEntry('DEBUG_INFO', 'generateSlide (Boldify)', logText);
-        
-        boldNotification = `（太字として認識： ${boldTextList}）`;
-      }
-
-      const text = `スライド「${currentSlide.title}」が生成されました。\nプレビューで確認し、承認してください。${boldNotification ? `\n${boldNotification}` : ''}`;
+      const text = `スライド「${currentSlide.title}」が生成されました。\nプレビューで確認し、承認してください。`;
       setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
       addLogEntry('UI_SYSTEM', 'generateSlide', text);
 
