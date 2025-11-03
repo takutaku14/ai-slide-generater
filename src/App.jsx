@@ -248,8 +248,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
   - これにより、何（価格、機能など）を比較しているかが明確になります。
 
 - **表形式（テーブル）が最適なデータ**（例：機能比較一覧、数値データ一覧など）を表現し、\`table_basic\` テンプレートを使用する場合は、
-  - **\`summary\`キーは絶対に空（""）**にし、代わりに **\`table\`キー** で \`{ "headers": ["(ヘッダー1)", ...], "rows": [ ["(行1データ1)", ...], ["(行2データ1)", ...] ] }\` の形式のオブジェクトを生成してください。
-  - **【表の重要ルール】**: スライドの視認性を保つため、\`table_basic\` の表は **最大7行、5列程度** に収めてください。
+  - **\`summary\`キーには、その表に関する補足説明や解説文をMarkdown形式で記述してください。** 解説が不要な場合は空（""）にしてください。  - **【表の重要ルール】**: スライドの視認性を保つため、\`table_basic\` の表は **最大7行、5列程度** に収めてください。
   - **【最重要・高さ考慮】**: 上記の行数制限（7行）を守っていても、**各セルのテキスト量（文字数）が非常に多い**場合、テーブル全体の高さが1枚のスライドに収ままらなくなる可能性があります。
   - **AIは常にこの「高さ」を意識してください。** もし1つのセルが長くなりすぎる場合（例：50文字を超える長文など）は、**内容を簡潔に要約**するか、**そのセル内で改行（\\n）**を適切に使用してください。
   - それでも情報が多すぎて1枚に収まらない（高さが超える）とAIが判断した場合は、行数が7行以下であっても、\`template\` が \`table_basic\` のスライドを **複数枚に分割** してください。
@@ -982,6 +981,16 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                     rows={5}
                     className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">表の解説文 (Summary)</label>
+                    <textarea 
+                      value={slide.summary || ''} 
+                      onChange={(e) => onChange(index, 'summary', e.target.value)} 
+                      rows={3} 
+                      className="w-full bg-gray-800/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
+                      placeholder="表の補足説明や解説文をMarkdown形式で入力..."
+                    />
+                  </div>
                 </div>
               </div>
             ) : slide.template === 'math_basic' ? (
@@ -2375,16 +2384,21 @@ export default function App() {
                 newSlide.summary = ""; 
             }
             // 2. 構造化テンプレート (points, columns, table, steps) のサニタイズ
-            else if (['three_points', 'comparison', 'vertical_steps', 'table_basic'].includes(newSlide.template)) {
+            
+            // ▼▼▼ この 'else if' から 'table_basic' を削除 ▼▼▼
+            else if (['three_points', 'comparison', 'vertical_steps'].includes(newSlide.template)) {
+            // ▲▲▲ 修正点 ▲▲▲
+                
                 // ▼▼▼ 修正: highlighted_number をここから除外 ▼▼▼
                 newSlide.summary = "";
-            } else if (newSlide.template === 'highlighted_number') {
-                // highlighted_number は summary を持つようになったため、summary が文字列であることを保証
+            
+            // ▼▼▼ この 'else if' に 'table_basic' を追加 ▼▼▼
+            } else if (newSlide.template === 'table_basic' || newSlide.template === 'highlighted_number') {
+                // table_basic と highlighted_number は summary を持つようになったため、summary が文字列であることを保証
                 if (typeof newSlide.summary !== 'string') {
                     newSlide.summary = "";
                 }
             }
-            // ▲▲▲ 修正ここまで ▲▲▲
 
             // 3. 'summary' ベースのテンプレートのサニタイズ (items -> summary)
             else if (['content_with_diagram', 'title_slide', 'agenda', 'summary_or_thankyou'].includes(newSlide.template)) {

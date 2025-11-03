@@ -513,7 +513,7 @@ export const standardTemplates = {
     <meta name="viewport" content="width=1280, initial-scale=1.0">
     <title>{title}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display.swap');
         :root {
             --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
             --bg-color-light: #FFFFFF; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
@@ -525,22 +525,28 @@ export const standardTemplates = {
         .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 30px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
         
+        /* ▼▼▼ このCSS定義を修正 ▼▼▼ */
         .table-container { 
             width: 100%; 
-            height: calc(100% - 100px); /* ヘッダーの高さを引いた分 */
-            overflow: hidden; /* スクロールバーはなし */
+            /* flex-grow: 1; を削除 */
+            min-height: 0;
+            overflow-y: auto; 
+            /* ★追加: テーブルが長くなった場合でも、このコンテナがスライドからはみ出ないように */
+            max-height: calc(100% - 150px); /* ヘッダーとフッター（解説文）のおおよその高さを引いた残り */
         }
+        /* ▲▲▲ 修正ここまで ▲▲▲ */
+
         table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed; /* 列幅を固定し、はみ出しを防ぐ */
+            table-layout: fixed;
         }
         th, td {
             border: 1px solid var(--sub-text-color);
             padding: 8px;
             font-size: 16px; 
             color: var(--sub-text-color);
-            word-wrap: break-word; /* セル内でテキストを改行 */
+            word-wrap: break-word;
             text-align: left;
         }
         th {
@@ -555,6 +561,28 @@ export const standardTemplates = {
         body.theme-light tr:nth-child(even) {
              background-color: #f8f9fa;
         }
+
+        /* (前回の修正を維持) */
+        .content {
+            flex-shrink: 0;
+            max-height: 25%;
+            overflow-y: auto;
+            padding-top: 20px;
+            
+            font-size: 18px; 
+            line-height: 1.6;
+            color: var(--sub-text-color); 
+            font-weight: 400;
+            text-align: center; 
+            width: 100%;
+        }
+
+        .content p { margin: 0 0 10px 0; line-height: 1.6; }
+        .content p:last-child { margin-bottom: 0; }
+        .content ul { margin: 0 0 10px 0; padding-left: 1.5em; list-style-type: none; }
+        .content li { margin: 0 0 8px 0; line-height: 1.6; position: relative; padding-left: 0.5em; }
+        .content li::before { content: '●'; color: var(--accent-color); font-size: 0.8em; position: absolute; left: -1.2em; top: 0.15em; }
+        .content strong { font-weight: 700; color: var(--text-color); }
     </style>
 </head>
 <body class="{theme_class}">
@@ -565,6 +593,7 @@ export const standardTemplates = {
                 {table_html}
             </table>
         </div>
+        <div class="content">{content}</div>
     </div>
 </body>
 </html>`,
