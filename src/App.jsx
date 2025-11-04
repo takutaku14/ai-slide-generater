@@ -120,6 +120,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
 - \`section_header\`: 章の区切り
 - \`highlighted_number\`: **【NEW】単一の最重要数値**（KPI、達成率など）を左に、**解説文**を右に配置（2カラム）。
 - \`table_basic\`: **表形式（テーブル）**。機能一覧、比較表、数値データなど。
+- \`bar_chart\`: 複数の数値（割合、スコアなど）を視覚的に比較するための棒グラフ。
 - \`comparison\`: **2〜4つの項目（メリット/デメリット、A案/B案/C案など）を比較・対比**するための専用テンプレート。
 - \`three_points\`: 3つの要点を横並びで表示。
 - \`vertical_steps\`: 時系列やステップ。
@@ -168,7 +169,18 @@ ${contextInstruction} // ★ 強化した指示を挿入
         \`\`\`
     * **出力テンプレート**: \`comparison\`
 
-4.  **[次点] 3つの要点か？**: 内容が3つの主要な特徴、ステップ、利点を並列で紹介している場合は、\`three_points\` の使用を優先します。
+4.  **[次点] 複数数値の視覚的比較か？**: 内容が複数の項目とそれぞれの数値（例: カテゴリA: 75%, B: 50%）を比較しており、テキストや単純な箇条書きよりも**棒グラフ**で表現するのが直感的で最適だと判断した場合、必ず \`bar_chart\` を選択します。
+    * **入力例 (Markdown)**:
+        \`\`\`markdown
+        #### 各カテゴリの進捗
+        - カテゴリA: 75%
+        - カテゴリB: 50%
+        - カテゴリC: 90%
+        \`\`\`
+    * **出力テンプレート**: \`bar_chart\`
+    * **AIの判断**: \`table_basic\` や \`comparison\` よりも、添付画像のような視覚的なグラフが適していると判断した場合にこれを選択する。
+
+5.  **[次点] 3つの要点か？**: 内容が3つの主要な特徴、ステップ、利点を並列で紹介している場合は、\`three_points\` の使用を優先します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 3つのメリット
@@ -178,7 +190,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
         \`\`\`
     * **出力テンプレート**: \`three_points\`
 
-5.  **[次点] ステップか？**: 内容が時系列や手順を示している場合は、\`vertical_steps\` を選択します。
+6.  **[次点] ステップか？**: 内容が時系列や手順を示している場合は、\`vertical_steps\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 導入プロセス
@@ -188,7 +200,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
         \`\`\`
     * **出力テンプレート**: \`vertical_steps\`
 
-6.  **[次点] 主要な数式か？**: 内容が**単一の主要な数式ブロック（$$...$$）**とその解説文で構成されている場合（数式が主題の場合）、必ず \`math_basic\` を選択します。
+7.  **[次点] 主要な数式か？**: 内容が**単一の主要な数式ブロック（$$...$$）**とその解説文で構成されている場合（数式が主題の場合）、必ず \`math_basic\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### 二次方程式の解
@@ -198,14 +210,14 @@ ${contextInstruction} // ★ 強化した指示を挿入
         \`\`\`
     * **出力テンプレート**: \`math_basic\`
 
-7.  **[次点] 重要な引用か？**: 内容が本文中の「キラーフレーズ」や「重要な結論」、「...と述べた」のような引用文であると判断した場合、必ず \`quote\` を選択します。
+8.  **[次点] 重要な引用か？**: 内容が本文中の「キラーフレーズ」や「重要な結論」、「...と述べた」のような引用文であると判断した場合、必ず \`quote\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         ...以上の分析から、我々はAプランが最適解であると結論付けた。このキラーフレーズは補足説明が必要である。
         \`\`\`
     * **出力テンプレート**: \`quote\`
 
-8.  **[次点] 図解が必要か？**: 内容が抽象的な概念や関係性（例：システム構成図、相関関係）を含み、テキストだけでは伝わりにくい場合、**かつ上記の専用テンプレートに当てはまらない場合**は、\`content_with_diagram\` を選択します。
+9.  **[次点] 図解が必要か？**: 内容が抽象的な概念や関係性（例：システム構成図、相関関係）を含み、テキストだけでは伝わりにくい場合、**かつ上記の専用テンプレートに当てはまらない場合**は、\`content_with_diagram\` を選択します。
     * **入力例 (Markdown)**:
         \`\`\`markdown
         #### システム構成
@@ -213,7 +225,7 @@ ${contextInstruction} // ★ 強化した指示を挿入
         \`\`\`
     * **出力テンプレート**: \`content_with_diagram\`
 
-9.  **[最終手段] 単純なリストか？**: 上記のいずれにも当てはまらない、単純な箇条書きや説明文の場合は、\`content_basic\` を選択します。
+10.  **[最終手段] 単純なリストか？**: 上記のいずれにも当てはまらない、単純な箇条書きや説明文の場合は、\`content_basic\` を選択します。
 
 ### 条件
 - 1枚目は必ず\`template\`が\`title_slide\`のタイトルページとしてください。タイトルはMarkdownの内容から最も適切と思われるものを自動で設定してください。
@@ -253,6 +265,28 @@ ${contextInstruction} // ★ 強化した指示を挿入
   - **AIは常にこの「高さ」を意識してください。** もし1つのセルが長くなりすぎる場合（例：50文字を超える長文など）は、**内容を簡潔に要約**するか、**そのセル内で改行（\\n）**を適切に使用してください。
   - それでも情報が多すぎて1枚に収まらない（高さが超える）とAIが判断した場合は、行数が7行以下であっても、\`template\` が \`table_basic\` のスライドを **複数枚に分割** してください。
     - （例：1枚目のタイトルを「**機能比較 (1/2)**」、2枚目のタイトルを「**機能比較 (2/2)**」のようにし、表の続きを2枚目に配置してください。この際、**ヘッダー行は両方のスライドに含めてください**。）
+
+- **【bar_chart ルール】**
+- **複数の数値（例：進捗率、スコア）を視覚的な棒グラフで比較**し、\`bar_chart\` テンプレートを使用する場合は、
+  - **\`summary\`キーは絶対に空（""）**にしてください。
+  - 代わりに **\`chart_data\`キー** で、**Chart.js と互換性のある厳格なデータオブジェクト**を生成してください。
+  - **【AIの思考プロセス】**:
+    1.  Markdownから「ラベル」（例: カテゴリA, B, C）と「データ」（例: 75, 50, 90）を抽出します。
+    2.  \`labels\` キーに「ラベルの配列（文字列）」を設定します。
+    3.  \`datasets\` キーに「単一要素の配列」を設定します。
+    4.  その単一要素のオブジェクト内に \`label\` キー（データセット名、例: "進捗率"）と \`data\` キー（数値の配列）を設定します。
+  - **【厳格な形式】**:
+    \`\`\`json
+    {
+      "labels": ["カテゴリA", "カテゴリB", "カテゴリC"],
+      "datasets": [
+        {
+          "label": "進捗率 (%)",
+          "data": [75, 50, 90]
+        }
+      ]
+    }
+    \`\`\`
 
 - **【▼▼▼ 修正点 ▼▼▼】**
 - \`three_points\` テンプレートを使用する場合、
@@ -320,6 +354,25 @@ ${sectionHeaderCondition}
   { "title": "我々の結論", "summary": "「我々の最適解は、Aプランである」", "template": "quote", "description": "− キラーフレーズや重要な結論の強調に使用。" },
   { "title": "システムの概要", "summary": "...", "template": "content_with_diagram", "infographic": { "needed": true, "description": "システム概要の構成図" } },
   { "title": "二次方程式の解", "summary": "この公式は...", "template": "math_basic", "formula": "$$ x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} $$" },
+  { 
+    "title": "各カテゴリの進捗",
+    "summary": "",
+    "template": "bar_chart",
+    "chart_data": {
+      "labels": ["カテゴリA", "カテゴリB", "カテゴリC"],
+      "datasets": [
+        {
+          "label": "進捗率 (%)",
+          "data": [75, 50, 90],
+          "backgroundColor": [ // (任意) AIが色を提案しても良い
+            "rgba(54, 162, 235, 0.6)",
+            "rgba(54, 162, 235, 0.6)",
+            "rgba(54, 162, 235, 0.6)"
+          ]
+        }
+      ]
+    }
+  }, 
   { 
     "title": "3つのプラン", 
     "summary": "", 
@@ -993,7 +1046,59 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                   </div>
                 </div>
               </div>
-            ) : slide.template === 'math_basic' ? (
+          ) : slide.template === 'bar_chart' ? (
+              <div className="space-y-3 mt-3">
+                <div className="bg-gray-800/50 p-3 rounded-md border border-white/10">
+                  <label className="text-xs font-bold text-gray-400 mb-2 block">
+                    グラフデータセット名 (例: 進捗率 (%))
+                  </label>
+                  <input
+                    type="text"
+                    value={slide.chart_data?.datasets?.[0]?.label || ''}
+                    onChange={(e) => {
+                      const newChartData = { ...(slide.chart_data || {}) };
+                      if (!newChartData.datasets) newChartData.datasets = [{}];
+                      newChartData.datasets[0] = { ...newChartData.datasets[0], label: e.target.value };
+                      onChange(index, 'chart_data', newChartData);
+                    }}
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  
+                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">
+                    X軸 ラベル (カンマ区切り)
+                  </label>
+                  <input
+                    type="text"
+                    value={Array.isArray(slide.chart_data?.labels) ? slide.chart_data.labels.join(', ') : ''}
+                    onChange={(e) => {
+                      const newChartData = { ...(slide.chart_data || {}) };
+                      newChartData.labels = e.target.value.split(',').map(s => s.trim());
+                      onChange(index, 'chart_data', newChartData);
+                    }}
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    placeholder="例: カテゴリA, カテゴリB, カテゴリC"
+                  />
+
+                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">
+                    Y軸 データ (カンマ区切り、数値のみ)
+                  </label>
+                  <input
+                    type="text"
+                    value={Array.isArray(slide.chart_data?.datasets?.[0]?.data) ? slide.chart_data.datasets[0].data.join(', ') : ''}
+                    onChange={(e) => {
+                      const newChartData = { ...(slide.chart_data || {}) };
+                      if (!newChartData.datasets) newChartData.datasets = [{}];
+                      // 入力を数値(Number)の配列に変換
+                      const dataAsNumbers = e.target.value.split(',').map(s => parseFloat(s.trim()) || 0);
+                      newChartData.datasets[0] = { ...newChartData.datasets[0], data: dataAsNumbers };
+                      onChange(index, 'chart_data', newChartData);
+                    }}
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    placeholder="例: 75, 50, 90"
+                  />
+                </div>
+              </div>  
+          ) : slide.template === 'math_basic' ? (
               <div className="space-y-3 mt-3">
                 <div className="bg-gray-800/50 p-3 rounded-md border border-white/10">
                   <label className="text-xs font-bold text-gray-400 mb-2 block">解説文 (Summary)</label>
@@ -1397,6 +1502,10 @@ const SlidePreviewItem = ({ htmlContent, containerWidth }) => {
   const scale = containerWidth > 0 ? (containerWidth - 16) / baseWidth : 1;
   const scaledHeight = baseHeight * scale;
 
+  // --- ▼▼▼ デバッグログを削除 ▼▼▼ ---
+  // console.log('[DEBUG] SlidePreviewItem Rendering...', { ... });
+  // --- ▲▲▲ デバッグログを削除 ▲▲▲ ---
+
   return (
     <div 
       className="relative w-full rounded-lg overflow-hidden shadow-lg border border-white/10"
@@ -1412,7 +1521,7 @@ const SlidePreviewItem = ({ htmlContent, containerWidth }) => {
           transform: `scale(${scale})`,
           transformOrigin: 'top left', // 左上基点で拡縮
         }}
-        sandbox="allow-same-origin" // スクリプトは許可しない
+        sandbox="allow-same-origin allow-scripts" // ★修正は維持
         title="Slide Preview Item"
       />
     </div>
@@ -3123,6 +3232,7 @@ export default function App() {
         '{items_html}': '',
         '{comparison_columns_html}': '',
         '{table_html}': '',
+        '{chart_data_json}': '{}', 
       };
       
       if (currentSlide.infographic?.needed) {
@@ -3297,6 +3407,81 @@ export default function App() {
         tableHtml += '</tbody>';
         
         replacements['{table_html}'] = tableHtml;
+      }
+
+      if (currentSlide.template === 'bar_chart' && currentSlide.chart_data) {
+        setThinkingState('designing');
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        const logContext = `Slide ${slideIndex + 1} (bar_chart)`;
+        const data = currentSlide.chart_data;
+
+        // 1. 処理開始ログ (AIから渡された生データを記録)
+        const startMsg = '[START] bar_chart processing started.';
+        console.log(startMsg, { context: logContext, receivedData: data }); // ★ブラウザログ
+        addLogEntry('DEBUG_INFO', logContext, {
+          message: startMsg,
+          receivedData: data
+        });
+
+        // 2. データ構造の検証
+        const isValid = data && 
+                        Array.isArray(data.labels) && 
+                        Array.isArray(data.datasets) && 
+                        data.datasets.length > 0 &&
+                        data.datasets[0] && // 
+                        Array.isArray(data.datasets[0].data);
+
+        if (!isValid) {
+          // 2a. データ構造が不正な場合のログ
+          const errorMsg = '[FAILED] Invalid chart_data structure received from AI.';
+          console.error(errorMsg, { context: logContext, receivedData: data }); // ★ブラウザログ
+          addLogEntry('DEBUG_ERROR', logContext, {
+            message: errorMsg,
+            receivedData: data
+          });
+          // エラーだが処理は続行（空のグラフが表示される）
+          replacements['{chart_data_json}'] = '{}';
+        } else {
+          // 2b. データ構造が有効な場合のログ
+          const validMsgData = {
+            message: '[VALID] chart_data structure is valid.',
+            labelsCount: data.labels.length,
+            datasetsCount: data.datasets.length,
+            firstDatasetDataCount: data.datasets[0].data.length
+          };
+          console.log(validMsgData.message, { context: logContext, details: validMsgData }); // ★ブラウザログ
+          addLogEntry('DEBUG_INFO', logContext, validMsgData);
+
+          // 3. JSON文字列化の試行
+          try {
+            const dataString = JSON.stringify(data)
+                                   .replace(/</g, '\\u003c')
+                                   .replace(/>/g, '\\u003e');
+                                   
+            replacements['{chart_data_json}'] = dataString;
+
+            // 3a. JSON文字列化 成功ログ
+            const successMsgData = {
+              message: '[SUCCESS] JSON.stringify successful.',
+              stringLength: dataString.length,
+              preview: dataString.substring(0, 100) + '...' // 文字列の冒頭を記録
+            };
+            console.log(successMsgData.message, { context: logContext, details: successMsgData }); // ★ブラウザログ
+            addLogEntry('DEBUG_SUCCESS', logContext, successMsgData);
+            
+          } catch (error) {
+            // 3b. JSON文字列化 失敗ログ
+            const errorMsg = `[FAILED] JSON.stringify failed. ${error.message}`;
+            console.error(errorMsg, { context: logContext, error: error, receivedData: data }); // ★ブラウザログ
+            addLogEntry('DEBUG_ERROR', logContext, {
+              message: errorMsg,
+              error: error,
+              receivedData: data
+            });
+            // プレースホルダーは初期値 '{}' のまま
+          }
+        }
       }
 
       setThinkingState('coding');

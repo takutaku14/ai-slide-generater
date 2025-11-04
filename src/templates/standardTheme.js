@@ -860,4 +860,158 @@ export const standardTemplates = {
         </div>
 </body>
 </html>`,
+  // 14. 棒グラフ (Chart.js)
+  bar_chart: `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>{title}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display.swap');
+        :root {
+            --bg-color-dark: #1e293b; --text-color-dark: #e2e8f0; --accent-color-dark: #38bdf8; --sub-text-color-dark: #cbd5e1;
+            --grid-color-dark: rgba(255, 255, 255, 0.1); 
+            --bg-color-light: #FFFFFF; --text-color-light: #1e293b; --accent-color-light: #0284c7; --sub-text-color-light: #475569;
+            --grid-color-light: rgba(0, 0, 0, 0.1); 
+
+            --label-color-dark: #1E293B; /* ダークモード時 (バーが明るい) の文字色 = 暗い色 */
+            --label-color-light: #FFFFFF; /* ライトモード時 (バーが暗い) の文字色 = 明るい色 */
+        }
+        body { margin: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body.theme-dark { --bg-color: var(--bg-color-dark); --text-color: var(--text-color-dark); --accent-color: var(--accent-color-dark); --sub-text-color: var(--sub-text-color-dark); --grid-color: var(--grid-color-dark); --label-color: var(--label-color-dark); }
+        body.theme-light { --bg-color: var(--bg-color-light); --text-color: var(--text-color-light); --accent-color: var(--accent-color-light); --sub-text-color: var(--sub-text-color-light); --grid-color: var(--grid-color-light); --label-color: var(--label-color-light); }
+        
+        .slide-container { 
+            width: 1280px; height: 720px; box-sizing: border-box; 
+            padding: 60px 80px; 
+            background: var(--bg-color); 
+            display: flex; flex-direction: column; 
+        }
+        .slide-header { 
+            border-bottom: 3px solid var(--accent-color); 
+            padding-bottom: 20px; 
+            margin-bottom: 30px; 
+            flex-shrink: 0; 
+        }
+        h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
+        
+        .chart-container {
+            flex-grow: 1; 
+            position: relative; 
+            min-height: 0; 
+        }
+    </style>
+</head>
+<body class="{theme_class}">
+    <div class="slide-container">
+        <div class="slide-header"><h1>{title}</h1></div>
+        
+        <div class="chart-container">
+            <canvas id="myChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // generateSlide 関数でこのプレースホルダーが実際のデータに置換されます
+        const chartData = {chart_data_json};
+
+        // --- Chart.js 実行コード ---
+        (function() {
+            const ctx = document.getElementById('myChart');
+            if (!ctx || !chartData) return;
+
+            // テーマ（dark/light）に応じて色を取得
+            const isDark = document.body.classList.contains('theme-dark');
+            const textColor = isDark ? 'rgba(226, 232, 240, 0.9)' : 'rgba(30, 41, 59, 0.9)';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            const accentColor = isDark ? '#38bdf8' : '#0284c7';
+            const labelColor = isDark ? 'var(--label-color-dark)' : 'var(--label-color-light)'; // ラベル色
+
+            // AIが色を指定していない場合のデフォルト色
+            const defaultBackgroundColor = isDark ? 'rgba(56, 189, 248, 0.6)' : 'rgba(2, 132, 199, 0.6)';
+            const defaultBorderColor = isDark ? '#38bdf8' : '#0284c7';
+
+            // AIが生成したデータセットにデフォルト色を設定
+            chartData.datasets.forEach(dataset => {
+                if (!dataset.backgroundColor) {
+                    dataset.backgroundColor = defaultBackgroundColor;
+                }
+                if (!dataset.borderColor) {
+                    dataset.borderColor = defaultBorderColor;
+                }
+                if (!dataset.borderWidth) {
+                    dataset.borderWidth = 1;
+                }
+            });
+
+            // プラグインをChart.jsに登録
+            Chart.register(ChartDataLabels);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    // ▼▼▼ [NEW] アニメーションを無効化 ▼▼▼
+                    animation: false,
+                    // ▲▲▲ 追加ここまで ▲▲▲
+
+                    responsive: true,
+                    maintainAspectRatio: false, // コンテナいっぱいに広げる
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: textColor, font: { family: "'Noto Sans JP', sans-serif", size: 14 } },
+                            grid: { color: gridColor }
+                        },
+                        x: {
+                            ticks: { color: textColor, font: { family: "'Noto Sans JP', sans-serif", size: 14 } },
+                            grid: { color: gridColor }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { 
+                                color: textColor, 
+                                font: { family: "'Noto Sans JP', sans-serif", size: 16, weight: '700' }
+                            }
+                        },
+                        tooltip: {
+                            titleFont: { family: "'Noto Sans JP', sans-serif", size: 16, weight: '700' },
+                            bodyFont: { family: "'Noto Sans JP', sans-serif", size: 14 }
+                        },
+                        
+                        // datalabels の設定
+                        datalabels: {
+                            anchor: 'end', // バーの「内側」上部
+                            align: 'end', // バーの「内側」上部
+                            color: labelColor, // テーマに応じた文字色
+                            font: {
+                                family: "'Noto Sans JP', sans-serif",
+                                weight: '700', // Bold
+                                size: 14
+                            },
+                            // 表示形式 (例: 85 -> "85%")
+                            formatter: (value, context) => {
+                                // AIが渡すデータは数値 (85) のため、"%" を追記
+                                // (ただし、0やnullの場合は表示しない)
+                                if (!value) return null;
+                                return value + '%'; 
+                            },
+                            // バーが細すぎる場合、ラベルを非表示にする (重なり防止)
+                            display: (context) => {
+                                return context.dataset.data[context.dataIndex] > 0; // 0より大きい場合のみ表示
+                            }
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
+</body>
+</html>`,
 };
