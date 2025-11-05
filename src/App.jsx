@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+
+import { MathfieldElement } from 'mathlive';
+import 'mathlive/static.css'; // MathLive のスタイルシート
+
 import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import JSZip from 'jszip';
@@ -11,6 +15,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString();
+
+// (Viteなどのモダン環境では、カスタム要素が自動登録されない場合があるため)
+if (!customElements.get('math-field')) {
+  customElements.define('math-field', MathfieldElement);
+}
 
 // --- 定数定義 ---
 
@@ -626,7 +635,115 @@ const SettingsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" 
 const UploadCloudIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" /><path d="M12 12v9" /><path d="m16 16-4-4-4 4" /></svg>);
 const SendIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>);
 
-// --- UI コンポーネント ---
+
+const MathLiveModal = ({ isOpen, initialValue, onSave, onCancel, onValueChange }) => {
+  const mathfieldRef = useRef(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+  
+  // KaTeXパーサーのインスタンスを作成
+  // (プレビュー機能のために必要)
+  const markedWithKatex = new Marked();
+  markedWithKatex.use(markedKatex({
+    throwOnError: false
+  }));
+
+  // MathLive要素の初期化とイベントリスナーの設定
+  useEffect(() => {
+    const mathfield = mathfieldRef.current;
+    if (!mathfield || !isOpen) return;
+
+    // カスタマイズオプション (電卓のような仮想キーボードを有効化)
+    mathfield.setOptions({
+      virtualKeyboardMode: "onfocus", // フォーカス時にキーボード表示
+      layouts: [
+        "numeric", 
+        "functions", 
+        "symbols", 
+        "alphabetic", 
+        "greek"
+      ],
+    });
+
+    // 'input' イベントをリッスンして React の state (tempMathFormula) に反映
+    const handleInput = (e) => {
+      const newKatexValue = e.target.value;
+      if (onValueChange) {
+        onValueChange(newKatexValue);
+      }
+      // ライブプレビューを更新
+      setPreviewHtml(markedWithKatex.parse(`$$ ${newKatexValue} $$`, { breaks: false }));
+    };
+
+    mathfield.addEventListener('input', handleInput);
+
+    // クリーンアップ
+    return () => {
+      mathfield.removeEventListener('input', handleInput);
+    };
+  }, [isOpen, onValueChange, markedWithKatex]); // isOpen時にも初期化
+
+  // モーダルが開いたとき、または初期値が変わったときに
+  // MathLive要素の値とプレビューを同期する
+  useEffect(() => {
+    if (isOpen) {
+      const mathfield = mathfieldRef.current;
+      const initialKatex = initialValue || '';
+      
+      if (mathfield && mathfield.value !== initialKatex) {
+        mathfield.value = initialKatex;
+      }
+      // 初期プレビューを生成
+      setPreviewHtml(markedWithKatex.parse(`$$ ${initialKatex} $$`, { breaks: false }));
+    }
+  }, [isOpen, initialValue, markedWithKatex]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-[#2a2a2e] border border-white/10 rounded-lg shadow-xl p-6 w-full max-w-3xl flex flex-col space-y-4">
+        <h2 className="text-xl font-bold flex-shrink-0">ビジュアル数式エディタ</h2>
+        
+        {/* --- エディタ本体 --- */}
+        <div>
+          <label className="text-xs font-bold text-gray-400 mb-2 block">数式 (KaTeX)</label>
+          <math-field 
+            ref={mathfieldRef}
+            style={{ 
+              width: '100%', 
+              border: '1px solid rgba(255, 255, 255, 0.2)', 
+              borderRadius: '0.375rem',
+              padding: '0.5rem 0.75rem',
+              fontSize: '1.25rem', // 少し大きく
+              backgroundColor: 'rgba(55, 65, 81, 0.6)', // bg-gray-700/60 相当
+              color: 'white',
+              fontFamily: 'KaTeX_Main, "Times New Roman", serif', // 数式フォント
+            }}
+          >
+            {initialValue || ''}
+          </math-field>
+        </div>
+
+        {/* --- ライブプレビュー --- */}
+        <div>
+          <label className="text-xs font-bold text-gray-400 mb-2 block">ライブプレビュー</label>
+          <div 
+            className="w-full bg-gray-900/50 border border-white/20 rounded-md p-4 min-h-[100px] flex items-center justify-center"
+            // KaTeXが生成する .katex スタイルを適用
+            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          />
+        </div>
+
+        {/* --- ボタン --- */}
+        <div className="flex justify-end mt-4 flex-shrink-0 space-x-2">
+          <button onClick={onCancel} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-md font-medium transition-colors">キャンセル</button>
+          <button onClick={onSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md font-medium transition-colors">保存して閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- UI コンポーネント ---
 const AppHeader = ({ onSettingsClick, onDownloadLog }) => ( // ← onDownloadLog を追加
   <header className="flex-shrink-0 h-14 bg-black/25 flex items-center px-6 justify-between border-b border-white/10 z-10">
@@ -789,8 +906,7 @@ const SectionHeaderSelector = ({ onSelect }) => (
   </div>
 );
 
-const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme, onRegenerate, onRegenerateContent, onModifySlide, onModifyAll }) => {
-  const handleTableChange = (slideIndex, field, value) => {
+const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selectedTheme, onRegenerate, onRegenerateContent, onModifySlide, onModifyAll, handleOpenMathModal }) => {  const handleTableChange = (slideIndex, field, value) => {
     const newOutline = [...outline];
     const newTable = { ...(newOutline[slideIndex].table || { headers: [], rows: [] }) };
     if (field === 'headers') {
@@ -1109,14 +1225,20 @@ const OutlineEditor = ({ outline, onChange, onInsert, onDelete, onStart, selecte
                     className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
                     placeholder="数式の解説文をMarkdown形式で入力..."
                   />
-                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">数式 (Formula) - KaTeX形式</label>
-                  <textarea 
-                    value={slide.formula || ''} 
-                    onChange={(e) => onChange(index, 'formula', e.target.value)} 
-                    rows={3} 
-                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" 
-                    placeholder="例: $$ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} $$"
-                  />
+                  <label className="text-xs font-bold text-gray-400 mt-2 mb-2 block">数式 (Formula)</label>
+                  
+
+                  <div 
+                    className="w-full bg-gray-700/60 border border-white/20 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono min-h-[50px] cursor-pointer hover:bg-gray-700 transition-colors"
+                    onClick={() => handleOpenMathModal(index)} // ★ モーダルを開く
+                  >
+                    {/* 現在の数式を簡易表示。空ならプロンプト表示 */}
+                    {slide.formula ? (
+                      <span className="text-gray-200">{slide.formula}</span>
+                    ) : (
+                      <span className="text-gray-400">クリックして数式を編集...</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : slide.template === 'highlighted_number' ? (
@@ -1456,6 +1578,7 @@ const ChatPanel = ({ chatState }) => (
         onRegenerateContent={chatState.handleRegenerateSlideContent}
         onModifySlide={chatState.handleOpenModifyModal}
         onModifyAll={chatState.handleOpenModifyAllModal}
+        handleOpenMathModal={chatState.handleOpenMathModal}
       />}
 
       {(chatState.appStatus === APP_STATUS.GENERATING_SLIDES || chatState.appStatus === APP_STATUS.SLIDE_GENERATED) &&
@@ -1727,6 +1850,10 @@ export default function App() {
 
   const [currentTotalWaitTime, setCurrentTotalWaitTime] = useState(0);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); 
+
+  const [isMathModalOpen, setIsMathModalOpen] = useState(false);
+  const [tempMathFormula, setTempMathFormula] = useState('');
+  const [mathModalTargetIndex, setMathModalTargetIndex] = useState(null);
 
   const chatEndRef = useRef(null);
 
@@ -2936,6 +3063,40 @@ export default function App() {
     setModificationInput('');
   };
 
+  /**
+   * 数式モーダルを開くハンドラ
+   */
+  const handleOpenMathModal = (index) => {
+    const currentFormula = slideOutline[index]?.formula || '';
+    setMathModalTargetIndex(index);
+    setTempMathFormula(currentFormula); // 現在の数式を一時Stateにセット
+    setIsMathModalOpen(true);
+  };
+
+  /**
+   * 数式モーダルを保存するハンドラ
+   */
+  const handleSaveMathModal = () => {
+    if (mathModalTargetIndex !== null) {
+      // 一時Stateの値を、slideOutline本体に反映
+      handleOutlineChange(mathModalTargetIndex, 'formula', tempMathFormula);
+    }
+    // モーダルを閉じてStateをリセット
+    setIsMathModalOpen(false);
+    setMathModalTargetIndex(null);
+    setTempMathFormula('');
+  };
+
+  /**
+   * 数式モーダルをキャンセルするハンドラ
+   */
+  const handleCancelMathModal = () => {
+    // 保存せずにモーダルを閉じてStateをリセット
+    setIsMathModalOpen(false);
+    setMathModalTargetIndex(null);
+    setTempMathFormula('');
+  };
+
   const handleSubmitModification = async () => {
     const { index, mode } = modifyModalTarget;
 
@@ -3073,6 +3234,26 @@ export default function App() {
 
       const template = THEMES[selectedTheme].templates[currentSlide.template];
       if (!template) throw new Error(`テンプレート「${currentSlide.template}」がテーマ「${selectedTheme}」に見つかりません。`);
+
+      // ▼▼▼ 【NEW】 KaTeXフォールバック処理 (Summary) ▼▼▼
+      if (currentSlide.template === 'math_basic' && currentSlide.summary) {
+        // summary内に $...$ や $$...$$ が含まれていないかチェック
+        const katexRegex = /(\$\$[\s\S]*?\$\$|\$[^\n$]*?\$)/g;
+        if (katexRegex.test(currentSlide.summary)) {
+            const logContext = `Slide ${slideIndex + 1} (math_basic_summary_fix)`;
+            const errorMsg = "[WARN] math_basic 'summary' contains KaTeX symbols. AI violated constraints. Stripping symbols...";
+            console.warn(errorMsg, { context: logContext, originalSummary: currentSlide.summary });
+            
+            addLogEntry('DEBUG_WARN', logContext, {
+                message: errorMsg,
+                originalSummary: currentSlide.summary
+            });
+            
+            // $...$ や $$...$$ のパターン全体を「 以下の数式 」に置換する
+            currentSlide.summary = currentSlide.summary.replace(katexRegex, ' 以下の数式 '); 
+        }
+      }
+      // ▲▲▲ KaTeXフォールバック処理ここまで ▲▲▲
 
       /**
        * AIが生成したMarkdown文字列をサニタイズする
@@ -3291,20 +3472,58 @@ export default function App() {
         replacements['{agenda_items_html}'] = agendaItems;
       }
 
+      // ▼▼▼ 【NEW】 KaTeXフォールバック処理 (Formula) ▼▼▼
       if (currentSlide.template === 'math_basic' && currentSlide.formula) {
         setThinkingState('designing');
         await new Promise(resolve => setTimeout(resolve, 800));
 
+        // KaTeXパーサーのセットアップ
         const markedWithKatex = new Marked();
         markedWithKatex.use(markedKatex({
           throwOnError: false
         }));
         
-        const formulaString = (currentSlide.formula || '');
-        const cleanedFormula = formulaString.replace(/\n/g, ' ');
+        let formulaString = (currentSlide.formula || '');
+        let extractedFormula = '';
+        const logContext = `Slide ${slideIndex + 1} (math_basic_formula_fix)`;
 
-        replacements['{formula}'] = markedWithKatex.parse(cleanedFormula, { breaks: false });
+        // 1. ブロック数式 ($$ ... $$) を最優先で探す
+        const blockMatch = formulaString.match(/\$\$([\s\S]*?)\$\$/);
+        
+        if (blockMatch && blockMatch[1]) {
+            extractedFormula = blockMatch[1].trim(); // 中身だけ抽出
+            
+            // もし $$ が2個より多い（＝複数ブロックやゴミがある）場合、警告
+            if (formulaString.match(/\$\$/g).length > 2) { 
+                const warnMsg = "[WARN] Multiple KaTeX blocks or extra text found in 'formula'. Using only the first block.";
+                console.warn(warnMsg, { context: logContext, original: formulaString });
+                addLogEntry('DEBUG_WARN', logContext, { message: warnMsg, original: formulaString });
+            }
+        } else {
+            // 2. ブロックがない場合、インライン ($ ... $) を探す
+            const inlineMatch = formulaString.match(/\$([^\n$]*?)\$/);
+            if (inlineMatch && inlineMatch[1]) {
+                extractedFormula = inlineMatch[1].trim(); // 中身だけ抽出
+                const warnMsg = "[WARN] Only inline KaTeX ($...$) found in 'formula'. Upgrading to block formula ($$...$$).";
+                console.warn(warnMsg, { context: logContext, original: formulaString });
+                addLogEntry('DEBUG_WARN', logContext, { message: warnMsg, original: formulaString });
+            } else {
+                // 3. $ も $$ もない場合 (AIの完全なミス)
+                //   （例: "y = x + 1" のようにデリミタを忘れた）
+                extractedFormula = formulaString.replace(/\n/g, ' '); // 既存の改行除去のみ行う
+                const warnMsg = "[WARN] No valid KaTeX delimiters ($ or $$) found in 'formula'. Attempting to render as is.";
+                console.warn(warnMsg, { context: logContext, original: formulaString });
+                addLogEntry('DEBUG_WARN', logContext, { message: warnMsg, original: formulaString });
+            }
+        }
+        
+        // 4. 抽出した数式を $$ でラップし直し、パースする
+        //    (extractedFormula が空でも " $$  $$ " がパースされるだけなので安全)
+        const finalFormulaBlock = `$$ ${extractedFormula} $$`;
+        
+        replacements['{formula}'] = markedWithKatex.parse(finalFormulaBlock, { breaks: false });
       }
+      // ▲▲▲ KaTeXフォールバック処理ここまで ▲▲▲
       
       if (['vertical_steps', 'content_basic'].includes(currentSlide.template) && Array.isArray(currentSlide.items)) {
         setThinkingState('designing');
@@ -3853,6 +4072,8 @@ export default function App() {
               handleAgendaChoice, handleSectionHeaderChoice,
 
               slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent, handleOpenModifyModal, handleOpenModifyAllModal,
+
+              handleOpenMathModal: handleOpenMathModal,
               currentSlideIndex, thinkingState,
               handlePreview, 
               handleRegenerateCurrentSlide, 
@@ -3882,6 +4103,14 @@ export default function App() {
         onChange={setModificationInput}
         onSave={handleSubmitModification}
         onCancel={handleCloseModifyModal}
+      />
+
+      <MathLiveModal
+        isOpen={isMathModalOpen}
+        initialValue={tempMathFormula}
+        onValueChange={setTempMathFormula} // 編集中の値を一時Stateに反映
+        onSave={handleSaveMathModal}
+        onCancel={handleCancelMathModal}
       />
     </div>
   );

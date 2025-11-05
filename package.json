@@ -20,6 +20,7 @@
     "lucide-react": "^0.545.0",
     "marked": "^16.4.1",
     "marked-katex-extension": "^5.1.5",
+    "mathlive": "^0.107.1",
     "pdfjs-dist": "^5.4.296",
     "react": "^19.1.1",
     "react-chartjs-2": "^5.3.1",
