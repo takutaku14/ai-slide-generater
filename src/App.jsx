@@ -627,19 +627,19 @@ const UploadCloudIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="4
 const SendIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>);
 
 // --- UI コンポーネント ---
-// --- UI コンポーネント ---
-const AppHeader = ({ onSettingsClick, onDownloadLog }) => ( // ← onDownloadLog を追加
+const AppHeader = ({ onSettingsClick, onDownloadLog }) => ( // ← onDownloadLog はそのまま
   <header className="flex-shrink-0 h-14 bg-black/25 flex items-center px-6 justify-between border-b border-white/10 z-10">
     <h1 className="text-lg font-semibold">スライド作成ジェネレーター</h1>
     <div className="flex items-center space-x-2">
-      {/* ▼▼▼ ログボタンを追加 ▼▼▼ */}
+      {/* ▼▼▼ ログボタンを修正 ▼▼▼ */}
       <button 
         onClick={onDownloadLog} 
-        title="デバッグログを保存" 
+        title="デバッグログをクリップボードにコピー" // title を変更
         className="p-2 rounded-full hover:bg-white/10 transition-colors"
       >
+        {/* SVGを「コピー」アイコンに変更 */}
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 hover:text-white transition-colors">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
         </svg>
       </button>
       {/* ▲▲▲ ログボタンここまで ▲▲▲ */}
@@ -1456,6 +1456,9 @@ const ChatPanel = ({ chatState }) => (
         onRegenerateContent={chatState.handleRegenerateSlideContent}
         onModifySlide={chatState.handleOpenModifyModal}
         onModifyAll={chatState.handleOpenModifyAllModal}
+        
+        scrollToIndex={chatState.scrollToIndex} // ★ props を渡す
+        onScrollComplete={() => chatState.setScrollToIndex(null)} // ★ リセット関数を渡す
       />}
 
       {(chatState.appStatus === APP_STATUS.GENERATING_SLIDES || chatState.appStatus === APP_STATUS.SLIDE_GENERATED) &&
@@ -1727,6 +1730,8 @@ export default function App() {
 
   const [currentTotalWaitTime, setCurrentTotalWaitTime] = useState(0);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); 
+
+  const [scrollToIndex, setScrollToIndex] = useState(null); // ★ スクロール位置を記憶する state を追加
 
   const chatEndRef = useRef(null);
 
@@ -2994,6 +2999,9 @@ export default function App() {
     if (window.confirm('現在のスライドプレビューを破棄し、構成案の編集画面に戻ります。\nこれまでに承認したスライドは保持されます。\n\nよろしいですか？')) {
       setCurrentSlideHtml(''); // 現在のプレビューを破棄
       setAppStatus(APP_STATUS.OUTLINE_CREATED); // 構成案編集モードに戻る
+      
+      setScrollToIndex(currentSlideIndex); // ★ 直前のスライドインデックスをセット
+
       const text = "構成案の編集に戻りました。編集完了後、「構成案を承認し、スライド生成を開始する」ボタンを押してください。";
       setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
       addLogEntry('UI_SYSTEM', 'handleReturnToOutline', text);
@@ -3608,11 +3616,16 @@ export default function App() {
       return;
     }
     
-    // ★重要★ ここに、デプロイしたCloud RunのURLを設定してください
-    const BACKEND_URL = 'https://slide-pdf-backend-306538767892.asia-northeast1.run.app/generate-pdf';
+    // ▼▼▼ [修正点] ▼▼▼
+    // ハードコードされたURLをViteの環境変数に置き換え
+    const BACKEND_URL = import.meta.env.VITE_PDF_BACKEND_URL;
+    // ▲▲▲ [修正点ここまで] ▲▲▲
     
-    if (BACKEND_URL.includes('your-cloud-run-service-url')) {
-      const text = 'エラー: App.jsx の BACKEND_URL を設定してください。';
+    // ▼▼▼ [修正点] ▼▼▼
+    // URLチェックロジックを、環境変数が未設定かどうかのチェックに変更
+    if (!BACKEND_URL || BACKEND_URL.includes('your-cloud-run-service-url')) {
+      const text = 'エラー: PDFバックエンドURL(VITE_PDF_BACKEND_URL)が設定されていません。 .envファイルを確認してください。';
+    // ▲▲▲ [修正点ここまで] ▲▲▲
       setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
       addLogEntry('UI_SYSTEM_ERROR', 'handleDownloadPdf', text);
       return;
@@ -3623,6 +3636,9 @@ export default function App() {
     const text = 'バックエンドにPDF生成をリクエストしました...';
     setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
     addLogEntry('UI_SYSTEM', 'handleDownloadPdf', text);
+
+    // リクエスト直前に、通信先のURLをブラウザのコンソールに出力
+    console.log('[INFO] PDFバックエンドへのリクエストURL:', BACKEND_URL);
     addLogEntry('SYSTEM_EVENT', 'handleDownloadPdf', `Requesting PDF from: ${BACKEND_URL}`);
 
     try {
@@ -3669,7 +3685,7 @@ export default function App() {
   /**
    * 【NEW】デバッグログをTXTファイルとしてダウンロードする
    */
-  const handleDownloadChatLog = () => {
+  const handleDownloadChatLog = async () => { // ★ async に変更
     if (debugLog.length === 0) {
       const text = 'ログはまだありません。';
       setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
@@ -3678,7 +3694,7 @@ export default function App() {
       return;
     }
     
-    addLogEntry('SYSTEM_EVENT', 'handleDownloadChatLog', 'Log download triggered.');
+    addLogEntry('SYSTEM_EVENT', 'handleDownloadChatLog', 'Log copy triggered.');
 
     let logContent = '--- スライド作成ジェネレーター デバッグログ ---\n\n';
 
@@ -3705,18 +3721,21 @@ export default function App() {
       logContent += '\n========================================\n\n';
     });
 
-    const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    
-    // タイムスタンプに基づいたファイル名
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    link.download = `slide-generator-log-${timestamp}.txt`;
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // ▼▼▼ ファイルダウンロード処理を削除し、クリップボード処理に変更 ▼▼▼
+    try {
+      await navigator.clipboard.writeText(logContent);
+      
+      const text = 'デバッグログをクリップボードにコピーしました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM', 'handleDownloadChatLog (Success)', text);
+
+    } catch (err) {
+      console.error('Failed to copy log to clipboard:', err);
+      const text = 'クリップボードへのコピーに失敗しました。';
+      setMessages(prev => [...prev, { type: 'system', text, timestamp: new Date().toISOString() }]);
+      addLogEntry('UI_SYSTEM_ERROR', 'handleDownloadChatLog (Error)', err.message);
+    }
+    // ▲▲▲ 変更ここまで ▲▲▲
   };
 
   const handleRegenerateCurrentSlide = () => {
@@ -3848,11 +3867,17 @@ export default function App() {
               messages, userInput, setUserInput, handleSendMessage, chatEndRef, appStatus,
               apiErrorStep, handleRetry,
               structuredMarkdown, setStructuredMarkdown, handleMarkdownApproval, 
-              handleRegenerateStructure, // ★追加
+              handleRegenerateStructure,
               selectedTheme, design, handleThemeSelection, handleDesignSelection, handleThemeApproval,
               handleAgendaChoice, handleSectionHeaderChoice,
 
-              slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, handleRegenerateSlideContent, handleOpenModifyModal, handleOpenModifyAllModal,
+              slideOutline, handleOutlineChange, handleInsertSlide, handleDeleteSlide, handleStartGeneration, handleRegenerateOutline, 
+              
+              // ▼▼▼ ここを修正 ▼▼▼
+              handleRegenerateContent: handleRegenerateSlideContent, 
+              // ▲▲▲ 修正ここまで ▲▲▲
+
+              handleOpenModifyModal, handleOpenModifyAllModal,
               currentSlideIndex, thinkingState,
               handlePreview, 
               handleRegenerateCurrentSlide, 
@@ -3860,7 +3885,10 @@ export default function App() {
               handleApproveAndNext, handleDownloadZip, handleOpenCodeEditor,
 
               handleDownloadPdf,
-              isGeneratingPdf
+              isGeneratingPdf,
+              
+              scrollToIndex, // ★ state を ChatPanel に渡す
+              setScrollToIndex // ★ state のセッターを ChatPanel に渡す
           }} />
         </div> 
       </main>
