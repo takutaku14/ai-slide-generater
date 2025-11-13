@@ -790,6 +790,8 @@ export const useAppLogic = () => {
                   points: null,
                   columns: null,
                   table: null,
+                  // ★ 追加: 開始番号を保存
+                  agenda_start_number: i * agendaMaxItems,
                 });
               }
               finalOutline.splice(1, 1, ...newAgendaSlides);
@@ -814,24 +816,26 @@ export const useAppLogic = () => {
               .map((slide) => slide.title || "")
               .filter((title) => title.length > 0);
             const newAgendaItems =
-              agendaItems.length > 0 ? agendaItems : ["（目次がありません）"];
+              agendaItems.length > 0 ? agendaItems : ["(目次がありません)"];
             const totalParts = Math.ceil(
               newAgendaItems.length / agendaMaxItems
             );
             const newAgendaSlides = [];
+
             if (
               newAgendaItems.length === 0 ||
               (newAgendaItems.length === 1 &&
-                newAgendaItems[0] === "（目次がありません）")
+                newAgendaItems[0] === "(目次がありません)")
             ) {
               newAgendaSlides.push({
                 title: "アジェンダ",
-                summary: "（目次がありません）",
+                summary: "(目次がありません)",
                 template: "agenda",
                 items: null,
                 points: null,
                 columns: null,
                 table: null,
+                agenda_start_number: 0, // ★ 追加
               });
             } else {
               for (let i = 0; i < totalParts; i++) {
@@ -849,6 +853,7 @@ export const useAppLogic = () => {
                   points: null,
                   columns: null,
                   table: null,
+                  agenda_start_number: i * agendaMaxItems, // ★ 追加
                 });
               }
             }
@@ -1463,6 +1468,7 @@ export const useAppLogic = () => {
         "{formula}": "",
         "{infographic_svg}": "",
         "{agenda_items_html}": "",
+        "{agenda_start_number}": String(currentSlide.agenda_start_number || 0),
         "{items_html}": "",
         "{comparison_columns_html}": "",
         "{table_html}": "",

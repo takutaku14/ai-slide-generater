@@ -65,9 +65,28 @@ export const standardTemplates = {
         .slide-container { width: 1280px; height: 720px; box-sizing: border-box; padding: 60px 80px; background: var(--bg-color); display: flex; flex-direction: column; }
         .slide-header { border-bottom: 3px solid var(--accent-color); padding-bottom: 20px; margin-bottom: 40px; }
         h1 { font-size: 42px; margin: 0; color: var(--text-color); font-weight: 700; }
-        ol { padding-left: 50px; margin: 0; }
-        li { font-size: 32px; color: var(--sub-text-color); line-height: 2.0; /* 行間を広めに */ margin-bottom: 15px; font-weight: 400; }
-        li::marker { color: var(--accent-color); font-weight: 700; }
+        ol { 
+            padding-left: 50px; 
+            margin: 0; 
+            /* ★ 追加: 開始番号を動的に設定 */
+            counter-reset: agenda-counter {agenda_start_number}; 
+        }
+        li { 
+            font-size: 32px; 
+            color: var(--sub-text-color); 
+            line-height: 2.0; 
+            margin-bottom: 15px; 
+            font-weight: 400; 
+            /* ★ 追加: カスタムカウンターを使用 */
+            list-style: none;
+            counter-increment: agenda-counter;
+        }
+        li::before {
+            /* ★ 追加: カスタムカウンターで番号を表示 */
+            content: counter(agenda-counter) ". ";
+            color: var(--accent-color); 
+            font-weight: 700;
+        }
     </style>
 </head>
 <body class="{theme_class}">
